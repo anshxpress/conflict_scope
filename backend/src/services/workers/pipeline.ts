@@ -9,15 +9,16 @@ import { calculateConfidence } from "../verification/confidence";
  * Main pipeline: Fetch → Extract → Geocode → Store
  *
  * Runs on a scheduled interval to process new conflict events from RSS feeds.
+ * @param sinceMinutes  How far back to look in RSS feeds (default 30 min).
  */
-export async function runPipeline(): Promise<number> {
-  console.log("\n[Pipeline] Starting conflict event pipeline...");
+export async function runPipeline(sinceMinutes = 30): Promise<number> {
+  console.log(`\n[Pipeline] Starting conflict event pipeline (lookback: ${sinceMinutes}min)...`);
   const startTime = Date.now();
   let eventsCreated = 0;
 
   try {
     // Step 1: Fetch new articles from all RSS feeds
-    const articles = await fetchAllFeeds(30);
+    const articles = await fetchAllFeeds(sinceMinutes);
     console.log(
       `[Pipeline] Fetched ${articles.length} articles from all feeds`
     );

@@ -4,6 +4,8 @@ import type {
   StatsResponse,
   CountryStats,
   ConflictEvent,
+  RiskMap,
+  CountryRiskDetails,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -82,5 +84,19 @@ export const api = {
    */
   getCountryStats(country: string): Promise<CountryStats> {
     return fetchJSON(`/stats/${encodeURIComponent(country)}`);
+  },
+
+  /**
+   * Fetch country → risk-level map for the choropleth map layer.
+   */
+  getRiskMap(): Promise<RiskMap> {
+    return fetchJSON("/risk-map");
+  },
+
+  /**
+   * Fetch detailed risk stats for a single country (for CountryRiskPanel).
+   */
+  getCountryRiskDetails(country: string): Promise<CountryRiskDetails> {
+    return fetchJSON(`/risk-map/country/${encodeURIComponent(country)}`);
   },
 };

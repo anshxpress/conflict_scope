@@ -1,10 +1,17 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useRef, useState, useCallback, type FC } from "react";
+import { useEffect, useRef, type FC } from "react";
 import L from "leaflet";
 import "leaflet.markercluster";
-import type { ConflictEvent, InfrastructureItem, EventType } from "@/types";
+import type {
+  ConflictEvent,
+  InfrastructureItem,
+  EventType,
+  RiskMap,
+} from "@/types";
 import { EVENT_TYPE_COLORS } from "@/types";
+
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface MapViewProps {
   events: ConflictEvent[];
@@ -13,10 +20,60 @@ interface MapViewProps {
   showInfrastructure: boolean;
   selectedEvent: ConflictEvent | null;
   onEventSelect: (event: ConflictEvent) => void;
+  /** Country name â†’ "red" | "orange" | "green". Drives the choropleth layer. */
+  riskMap: RiskMap;
+  /** Called when the user clicks a country polygon. Passes the DB country name. */
+  onCountrySelect: (country: string) => void;
   filteredTimeRange?: [Date, Date] | null;
 }
 
-// Marker icon factory
+// â”€â”€ Country name normalisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//
+// GeoJSON (Natural Earth) uses `ADMIN` names which occasionally differ from
+// the English names Nominatim stores in the database.  This lookup normalises
+// GeoJSON names â†’ DB names before matching against the riskMap keys.
+//
+const GEO_TO_DB: Record<string, string> = {
+  "United States of America": "United States",
+  "Dem. Rep. Congo": "Democratic Republic of the Congo",
+  "CÃ´te d'Ivoire": "Ivory Coast",
+  "Central African Rep.": "Central African Republic",
+  "S. Sudan": "South Sudan",
+  "Dominican Rep.": "Dominican Republic",
+  "Bosnia and Herz.": "Bosnia and Herzegovina",
+  "N. Cyprus": "Northern Cyprus",
+  "Eq. Guinea": "Equatorial Guinea",
+  "W. Sahara": "Western Sahara",
+  "Solomon Is.": "Solomon Islands",
+  "Marshall Is.": "Marshall Islands",
+  Micronesia: "Federated States of Micronesia",
+};
+
+function resolveDbName(geoAdmin: string): string {
+  return GEO_TO_DB[geoAdmin] ?? geoAdmin;
+}
+
+// â”€â”€ Choropleth styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const RISK_FILL: Record<string, string> = {
+  red: "#ef4444",
+  orange: "#f97316",
+  green: "#22c55e",
+};
+
+function countryStyle(riskLevel: string | undefined): L.PathOptions {
+  const fill = RISK_FILL[riskLevel ?? "green"] ?? RISK_FILL.green;
+  return {
+    fillColor: fill,
+    fillOpacity: riskLevel && riskLevel !== "green" ? 0.45 : 0.08,
+    color: "#374151",
+    weight: 0.5,
+    opacity: 0.6,
+  };
+}
+
+// â”€â”€ Marker helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 function createEventIcon(eventType: EventType): L.DivIcon {
   const color = EVENT_TYPE_COLORS[eventType] || "#ef4444";
   return L.divIcon({
@@ -59,6 +116,8 @@ const infraIcon = L.divIcon({
   iconAnchor: [6, 6],
 });
 
+// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 const MapView: FC<MapViewProps> = ({
   events,
   infrastructure,
@@ -66,20 +125,28 @@ const MapView: FC<MapViewProps> = ({
   showInfrastructure,
   selectedEvent,
   onEventSelect,
+  riskMap,
+  onCountrySelect,
 }) => {
-  const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const geoJsonLayerRef = useRef<L.GeoJSON | null>(null);
   const eventLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   const infraLayerRef = useRef<L.LayerGroup | null>(null);
   const heatLayerRef = useRef<L.Layer | null>(null);
 
-  // Initialize map
+  // Keep a ref to the latest riskMap so the GeoJSON style function always
+  // reads the current value without needing to recreate the layer.
+  const riskMapRef = useRef<RiskMap>(riskMap);
+
+  // â”€â”€ Map initialisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
-      center: [30, 35],
-      zoom: 4,
+      center: [30, 20],
+      zoom: 3,
       zoomControl: true,
       attributionControl: true,
       minZoom: 2,
@@ -101,37 +168,91 @@ const MapView: FC<MapViewProps> = ({
     return () => {
       map.remove();
       mapRef.current = null;
+      geoJsonLayerRef.current = null;
     };
   }, []);
 
-  // Update event markers
+  // â”€â”€ GeoJSON countries choropleth layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  useEffect(() => {
+    fetch("/data/countries.geojson")
+      .then((r) => r.json())
+      .then((geo) => {
+        const map = mapRef.current;
+        if (!map) return;
+
+        const layer = L.geoJSON(geo, {
+          style: (feature) => {
+            const admin: string = feature?.properties?.ADMIN ?? "";
+            const dbName = resolveDbName(admin);
+            const level = riskMapRef.current[dbName];
+            return countryStyle(level);
+          },
+          onEachFeature: (feature, featureLayer) => {
+            featureLayer.on({
+              click: () => {
+                const admin: string = feature?.properties?.ADMIN ?? "";
+                const dbName = resolveDbName(admin);
+                // Pass the DB name (matched in riskMap) if found, else the
+                // GeoJSON ADMIN name so the panel can still display something.
+                onCountrySelect(riskMapRef.current[dbName] ? dbName : admin);
+              },
+              mouseover: (e) => {
+                const l = e.target as L.Path;
+                l.setStyle({ weight: 1.5, color: "#9ca3af", fillOpacity: 0.6 });
+              },
+              mouseout: (e) => {
+                layer.resetStyle(e.target as L.Path);
+              },
+            });
+          },
+        });
+
+        layer.addTo(map);
+        geoJsonLayerRef.current = layer;
+      })
+      .catch((err) =>
+        console.error("[MapView] Failed to load countries GeoJSON:", err),
+      );
+    // Only run on mount â€” subsequent riskMap changes use the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // â”€â”€ Re-style choropleth when riskMap prop changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  useEffect(() => {
+    riskMapRef.current = riskMap;
+    const layer = geoJsonLayerRef.current;
+    if (!layer) return;
+
+    layer.setStyle((feature) => {
+      const admin: string = feature?.properties?.ADMIN ?? "";
+      const dbName = resolveDbName(admin);
+      const level = riskMap[dbName];
+      return countryStyle(level);
+    });
+  }, [riskMap]);
+
+  // â”€â”€ Event markers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Clear old layer
     if (eventLayerRef.current) {
       map.removeLayer(eventLayerRef.current);
     }
 
-    // @ts-ignore - markerClusterGroup exists via plugin
+    // @ts-ignore
     const cluster = L.markerClusterGroup({
       maxClusterRadius: 40,
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
-      iconCreateFunction: (cluster: L.MarkerCluster) => {
-        const count = cluster.getChildCount();
-        let size = "small";
-        let color = "#eab308";
-        if (count > 50) {
-          size = "large";
-          color = "#ef4444";
-        } else if (count > 10) {
-          size = "medium";
-          color = "#f97316";
-        }
+      iconCreateFunction: (c: L.MarkerCluster) => {
+        const n = c.getChildCount();
+        const color = n > 50 ? "#ef4444" : n > 10 ? "#f97316" : "#eab308";
         return L.divIcon({
-          className: `marker-cluster marker-cluster-${size}`,
+          className: `marker-cluster`,
           html: `<div style="
             width:40px;height:40px;
             border-radius:50%;
@@ -141,7 +262,7 @@ const MapView: FC<MapViewProps> = ({
             color:white;font-weight:bold;font-size:12px;
             border:2px solid rgba(255,255,255,0.5);
             box-shadow:0 0 12px ${color};
-          ">${count}</div>`,
+          ">${n}</div>`,
           iconSize: [40, 40],
           iconAnchor: [20, 20],
         });
@@ -159,7 +280,7 @@ const MapView: FC<MapViewProps> = ({
             ${escapeHtml(event.title)}
           </h3>
           <div style="font-size:11px;color:#9ca3af;margin-bottom:4px;">
-            ${event.eventType.replace("_", " ")} • ${event.country}
+            ${event.eventType.replace(/_/g, " ")} &bull; ${escapeHtml(event.country)}
           </div>
           <div style="font-size:11px;color:#6b7280;">
             ${new Date(event.timestamp).toLocaleString()}
@@ -186,7 +307,8 @@ const MapView: FC<MapViewProps> = ({
     eventLayerRef.current = cluster;
   }, [events, onEventSelect]);
 
-  // Update infrastructure layer
+  // â”€â”€ Infrastructure layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -208,7 +330,7 @@ const MapView: FC<MapViewProps> = ({
         <div>
           <h4 style="margin:0;font-size:12px;color:#93c5fd;">${escapeHtml(item.name)}</h4>
           <div style="font-size:11px;color:#9ca3af;">
-            ${item.type.replace("_", " ")} • ${item.country}
+            ${item.type.replace(/_/g, " ")} &bull; ${escapeHtml(item.country)}
           </div>
         </div>
       `);
@@ -219,7 +341,8 @@ const MapView: FC<MapViewProps> = ({
     infraLayerRef.current = layer;
   }, [infrastructure, showInfrastructure]);
 
-  // Update heatmap
+  // â”€â”€ Heatmap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -237,7 +360,7 @@ const MapView: FC<MapViewProps> = ({
       0.5,
     ]);
 
-    // @ts-ignore - heat is from leaflet.heat plugin
+    // @ts-ignore
     const heat = L.heatLayer(heatData, {
       radius: 25,
       blur: 15,
@@ -254,7 +377,8 @@ const MapView: FC<MapViewProps> = ({
     heatLayerRef.current = heat;
   }, [events, showHeatmap]);
 
-  // Fly to selected event
+  // â”€â”€ Fly to selected event â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
   useEffect(() => {
     if (selectedEvent && mapRef.current) {
       mapRef.current.flyTo(

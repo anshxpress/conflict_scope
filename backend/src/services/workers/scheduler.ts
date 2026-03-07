@@ -5,7 +5,13 @@ const INTERVAL = parseInt(
   10
 );
 
+// On first start, look back 24 hours to seed recent history from all feeds.
+// After that, only look back the normal 30-minute window each tick.
+const FIRST_RUN_LOOKBACK_MINUTES = 24 * 60; // 1440 min
+const REGULAR_LOOKBACK_MINUTES = 30;
+
 let isRunning = false;
+let isFirstRun = true;
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 /**
@@ -39,8 +45,11 @@ async function runSafe(): Promise<void> {
   }
 
   isRunning = true;
+  const lookback = isFirstRun ? FIRST_RUN_LOOKBACK_MINUTES : REGULAR_LOOKBACK_MINUTES;
+  isFirstRun = false;
+
   try {
-    await runPipeline();
+    await runPipeline(lookback);
   } catch (err) {
     console.error("[Scheduler] Unhandled pipeline error:", err);
   } finally {

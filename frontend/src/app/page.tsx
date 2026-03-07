@@ -1,8 +1,13 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
 import { useState, useMemo, useCallback } from "react";
-import { useEvents, useInfrastructure, useStats } from "@/lib/hooks";
+import {
+  useEvents,
+  useInfrastructure,
+  useStats,
+  useRiskMap,
+} from "@/lib/hooks";
 import { api } from "@/lib/api";
 import useSWR from "swr";
 import FilterPanel from "@/components/dashboard/FilterPanel";
@@ -10,8 +15,9 @@ import EventDetailsPanel from "@/components/dashboard/EventDetailsPanel";
 import InfrastructureLayerToggle from "@/components/dashboard/InfrastructureLayerToggle";
 import ConflictStatsPanel from "@/components/dashboard/ConflictStatsPanel";
 import LiveEventFeed from "@/components/dashboard/LiveEventFeed";
+import CountryRiskPanel from "@/components/dashboard/CountryRiskPanel";
 import TimelineSlider from "@/components/timeline/TimelineSlider";
-import type { ConflictEvent, InfrastructureType } from "@/types";
+import type { ConflictEvent, InfrastructureType, RiskMap } from "@/types";
 
 // Dynamically import MapView to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map/MapView"), {
@@ -20,22 +26,22 @@ const MapView = dynamic(() => import("@/components/map/MapView"), {
     <div className="w-full h-full flex items-center justify-center bg-cs-dark">
       <div className="text-center space-y-3">
         <div className="inline-block w-10 h-10 border-2 border-cs-accent border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs text-gray-500">Initializing map…</p>
+        <p className="text-xs text-gray-500">Initializing mapâ€¦</p>
       </div>
     </div>
   ),
 });
 
 export default function DashboardPage() {
-  // ── Filters ───────────────────────────────────────────
+  // â”€â”€ Filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedConfidence, setSelectedConfidence] = useState("");
 
-  // ── Timeline ──────────────────────────────────────────
+  // â”€â”€ Timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [timeRange, setTimeRange] = useState<[Date, Date] | null>(null);
 
-  // ── Map layer toggles ─────────────────────────────────
+  // â”€â”€ Map layer toggles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [showEvents, setShowEvents] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showInfrastructure, setShowInfrastructure] = useState(false);
@@ -43,17 +49,21 @@ export default function DashboardPage() {
     Set<InfrastructureType>
   >(new Set(["airport", "power_plant"]));
 
-  // ── Sidebar state ─────────────────────────────────────
+  // â”€â”€ Sidebar state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [sidebarTab, setSidebarTab] = useState<"filters" | "stats" | "feed">(
     "feed",
   );
   const [selectedEvent, setSelectedEvent] = useState<ConflictEvent | null>(
     null,
   );
+  // Country selected by clicking a polygon on the map
+  const [selectedMapCountry, setSelectedMapCountry] = useState<string | null>(
+    null,
+  );
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
 
-  // ── Data fetching ──────────────────────────────────────
+  // â”€â”€ Data fetching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const filterParams = useMemo(() => {
     const p: Record<string, string> = {};
     if (selectedCountry) p.country = selectedCountry;
@@ -75,9 +85,11 @@ export default function DashboardPage() {
     () => api.getCountryStats(selectedCountry),
     { revalidateOnFocus: false },
   );
+  const { data: riskMapData } = useRiskMap();
 
   const events = eventsData?.data ?? [];
   const infrastructure = infraData?.data ?? [];
+  const riskMap: RiskMap = riskMapData ?? {};
 
   // Derive countries list
   const countries = useMemo(() => {
@@ -102,6 +114,13 @@ export default function DashboardPage() {
 
   const handleEventSelect = useCallback((ev: ConflictEvent) => {
     setSelectedEvent(ev);
+    setSelectedMapCountry(null);
+    setRightPanelOpen(true);
+  }, []);
+
+  const handleCountrySelect = useCallback((country: string) => {
+    setSelectedMapCountry(country);
+    setSelectedEvent(null);
     setRightPanelOpen(true);
   }, []);
 
@@ -121,9 +140,13 @@ export default function DashboardPage() {
     });
   }, []);
 
+  // Right panel shows either country details or event details
+  const rightPanelVisible =
+    rightPanelOpen && (selectedEvent !== null || selectedMapCountry !== null);
+
   return (
     <div className="flex flex-col h-screen bg-cs-dark overflow-hidden">
-      {/* ── Top NavBar ────────────────────────────────── */}
+      {/* â”€â”€ Top NavBar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <header className="shrink-0 h-12 bg-cs-panel border-b border-cs-border flex items-center px-4 gap-4 z-50">
         {/* Logo */}
         <div className="flex items-center gap-2">
@@ -161,7 +184,7 @@ export default function DashboardPage() {
           Open Global Conflict Intelligence Dashboard
         </span>
 
-        {/* Event count badge */}
+        {/* Badges: event count + active hot-zone count */}
         <div className="ml-auto flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <span className="relative flex h-1.5 w-1.5">
@@ -178,12 +201,20 @@ export default function DashboardPage() {
               events tracked
             </div>
           )}
+          {riskMapData && (
+            <div className="text-xs text-gray-500">
+              <span className="text-red-400 font-mono font-bold">
+                {Object.values(riskMapData).filter((v) => v === "red").length}
+              </span>{" "}
+              active hot zones
+            </div>
+          )}
         </div>
       </header>
 
-      {/* ── Main Layout ───────────────────────────────── */}
+      {/* â”€â”€ Main Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex flex-1 overflow-hidden">
-        {/* ── Left Sidebar ───────────────────────────── */}
+        {/* â”€â”€ Left Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div
           className={`relative shrink-0 flex flex-col transition-all duration-300 bg-cs-panel border-r border-cs-border z-40 ${
             leftPanelOpen ? "w-72" : "w-0"
@@ -277,7 +308,7 @@ export default function DashboardPage() {
           </svg>
         </button>
 
-        {/* ── Map Area ────────────────────────────────── */}
+        {/* â”€â”€ Map Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex-1 flex flex-col relative overflow-hidden">
           {/* Map itself */}
           <div className="flex-1 relative">
@@ -288,36 +319,67 @@ export default function DashboardPage() {
               showInfrastructure={showInfrastructure}
               selectedEvent={selectedEvent}
               onEventSelect={handleEventSelect}
+              riskMap={riskMap}
+              onCountrySelect={handleCountrySelect}
             />
 
-            {/* Map legend overlay */}
-            <div className="absolute bottom-8 left-4 bg-cs-panel/90 border border-cs-border rounded-lg p-3 text-[10px] text-gray-400 z-[1000] backdrop-blur-sm">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
-                Legend
+            {/* Map legend overlay â€” risk colours + event types */}
+            <div className="absolute bottom-8 left-4 bg-cs-panel/90 border border-cs-border rounded-lg p-3 text-[10px] text-gray-400 z-[1000] backdrop-blur-sm space-y-3">
+              {/* Country risk legend */}
+              <div>
+                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">
+                  Country Risk
+                </div>
+                <div className="space-y-1">
+                  {[
+                    { color: "#ef4444", label: "Events â‰¤ 14 days" },
+                    { color: "#f97316", label: "Events 15â€“30 days" },
+                    {
+                      color: "#22c55e",
+                      opacity: 0.3,
+                      label: "No recent events",
+                    },
+                  ].map(({ color, label, opacity }) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-sm shrink-0"
+                        style={{ background: color, opacity: opacity ?? 0.5 }}
+                      />
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1">
-                {[
-                  { color: "#ef4444", label: "Airstrike" },
-                  { color: "#f97316", label: "Missile Strike" },
-                  { color: "#eab308", label: "Explosion" },
-                  { color: "#a855f7", label: "Drone Strike" },
-                  { color: "#f59e0b", label: "Infra Attack" },
-                  { color: "#dc2626", label: "Armed Conflict" },
-                ].map(({ color, label }) => (
-                  <div key={label} className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: color }}
-                    />
-                    <span>{label}</span>
-                  </div>
-                ))}
-                {showInfrastructure && (
-                  <div className="flex items-center gap-2 border-t border-cs-border pt-1 mt-1">
-                    <span className="w-2 h-2 rounded-full shrink-0 bg-cs-blue" />
-                    <span>Infrastructure</span>
-                  </div>
-                )}
+
+              {/* Event marker legend */}
+              <div className="border-t border-cs-border pt-2">
+                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">
+                  Event Markers
+                </div>
+                <div className="space-y-1">
+                  {[
+                    { color: "#ef4444", label: "Airstrike" },
+                    { color: "#f97316", label: "Missile Strike" },
+                    { color: "#eab308", label: "Explosion" },
+                    { color: "#a855f7", label: "Drone Strike" },
+                    { color: "#f59e0b", label: "Infra Attack" },
+                    { color: "#dc2626", label: "Armed Conflict" },
+                  ].map(({ color, label }) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: color }}
+                      />
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                  {showInfrastructure && (
+                    <div className="flex items-center gap-2 border-t border-cs-border pt-1 mt-1">
+                      <span className="w-2 h-2 rounded-full shrink-0 bg-cs-blue" />
+                      <span>Infrastructure</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -337,18 +399,32 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Right Panel ─────────────────────────────── */}
+        {/* â”€â”€ Right Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div
           className={`shrink-0 transition-all duration-300 bg-cs-panel border-l border-cs-border z-40 overflow-hidden ${
-            rightPanelOpen && selectedEvent ? "w-80" : "w-0"
+            rightPanelVisible ? "w-80" : "w-0"
           }`}
         >
-          <div className="w-80 p-3 h-full overflow-y-auto">
-            {selectedEvent && (
-              <EventDetailsPanel
-                event={selectedEvent}
-                onClose={() => setSelectedEvent(null)}
+          <div className="w-80 h-full overflow-y-auto">
+            {selectedMapCountry && (
+              <CountryRiskPanel
+                country={selectedMapCountry}
+                onClose={() => {
+                  setSelectedMapCountry(null);
+                  setRightPanelOpen(false);
+                }}
               />
+            )}
+            {selectedEvent && !selectedMapCountry && (
+              <div className="p-3 h-full">
+                <EventDetailsPanel
+                  event={selectedEvent}
+                  onClose={() => {
+                    setSelectedEvent(null);
+                    setRightPanelOpen(false);
+                  }}
+                />
+              </div>
             )}
           </div>
         </div>

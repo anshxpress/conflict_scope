@@ -108,4 +108,38 @@ export const INFRASTRUCTURE_TYPE_LABELS: Record<InfrastructureType, string> = {
   government_building: "Government Building",
 };
 
+// ── Risk map types ─────────────────────────────────────
+
+export type RiskLevel = "red" | "orange" | "green";
+
+/** Keyed by country name as stored in the DB (Nominatim English name). */
+export type RiskMap = Record<string, RiskLevel>;
+
+export interface CountryRiskDetails {
+  country: string;
+  riskLevel: RiskLevel;
+  events14Days: number;
+  events30Days: number;
+  recentEvents: Array<{
+    id: string;
+    title: string;
+    eventType: string;
+    timestamp: string;
+    latitude: number;
+    longitude: number;
+  }>;
+}
+
+export const RISK_COLORS: Record<RiskLevel, string> = {
+  red: "#ef4444",
+  orange: "#f97316",
+  green: "#22c55e",
+};
+
+export const RISK_LABELS: Record<RiskLevel, string> = {
+  red: "High Risk — events in last 14 days",
+  orange: "Recent Activity — events 15–30 days ago",
+  green: "No Recent Events",
+};
+
 

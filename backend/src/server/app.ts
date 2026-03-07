@@ -3,6 +3,7 @@ import { cors } from "@elysiajs/cors";
 import { eventsRoutes } from "./routes/events";
 import { infrastructureRoutes } from "./routes/infrastructure";
 import { statsRoutes } from "./routes/stats";
+import { riskMapRoutes } from "./routes/risk-map";
 
 export function createApp() {
   const app = new Elysia()
@@ -17,9 +18,13 @@ export function createApp() {
       timestamp: new Date().toISOString(),
       service: "conflictscope-api",
     }))
-    .use(eventsRoutes)
-    .use(infrastructureRoutes)
-    .use(statsRoutes);
+    .group("/api/v1", (app) =>
+      app
+        .use(eventsRoutes)
+        .use(infrastructureRoutes)
+        .use(statsRoutes)
+        .use(riskMapRoutes)
+    );
 
   return app;
 }

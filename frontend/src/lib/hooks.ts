@@ -5,6 +5,8 @@ import type {
   InfrastructureItem,
   StatsResponse,
   ConflictEvent,
+  RiskMap,
+  CountryRiskDetails,
 } from "@/types";
 
 const REFRESH_INTERVAL = 60_000; // 1 minute auto-refresh
@@ -48,6 +50,23 @@ export function useEvent(id: string | null) {
   return useSWR<ConflictEvent>(
     id ? ["event", id] : null,
     () => api.getEvent(id!),
+    { revalidateOnFocus: false }
+  );
+}
+
+/** Refreshes every 5 minutes — risk levels change slowly. */
+export function useRiskMap() {
+  return useSWR<RiskMap>("risk-map", () => api.getRiskMap(), {
+    refreshInterval: 5 * 60 * 1000,
+    revalidateOnFocus: false,
+  });
+}
+
+/** Loads detail stats for a single country (shown in CountryRiskPanel). */
+export function useCountryRisk(country: string | null) {
+  return useSWR<CountryRiskDetails>(
+    country ? ["country-risk", country] : null,
+    () => api.getCountryRiskDetails(country!),
     { revalidateOnFocus: false }
   );
 }

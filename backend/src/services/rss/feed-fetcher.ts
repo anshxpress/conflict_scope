@@ -14,24 +14,46 @@ const parser = new Parser({
   headers: {
     "User-Agent": "ConflictScope/1.0 (OSINT Research Platform)",
   },
+  // tolerate feeds that omit XML namespace declarations
+  customFields: { feed: [], item: [] },
 });
 
-const RSS_FEEDS = [
-  {
-    name: "Reuters World",
-    url: "https://feeds.reuters.com/Reuters/worldNews",
-  },
+interface FeedDef {
+  name: string;
+  url: string;
+  fallback?: string;
+}
+
+const RSS_FEEDS: FeedDef[] = [
+  // BBC
   {
     name: "BBC World",
     url: "https://feeds.bbci.co.uk/news/world/rss.xml",
   },
+  // Al Jazeera
   {
     name: "Al Jazeera",
     url: "https://www.aljazeera.com/xml/rss/all.xml",
   },
+  // The Guardian — world
+  {
+    name: "The Guardian",
+    url: "https://www.theguardian.com/world/rss",
+  },
+  // DW (Deutsche Welle)
+  {
+    name: "DW World",
+    url: "https://rss.dw.com/rdf/rss-en-world",
+  },
+  // Sky News world
+  {
+    name: "Sky News World",
+    url: "https://feeds.skynews.com/feeds/rss/world.xml",
+  },
+  // GDELT — query scoped to conflict keywords with explicit maxrecords
   {
     name: "GDELT",
-    url: "https://api.gdeltproject.org/api/v2/doc/doc?query=conflict%20OR%20war%20OR%20attack&mode=ArtList&format=rss&maxrecords=50&sort=DateDesc",
+    url: "https://api.gdeltproject.org/api/v2/doc/doc?query=conflict%20OR%20war%20OR%20attack%20OR%20airstrike%20OR%20missile&mode=ArtList&format=rss&maxrecords=75&sort=DateDesc",
   },
 ];
 
@@ -45,7 +67,9 @@ export async function fetchAllFeeds(
   const allArticles: FeedArticle[] = [];
 
   const results = await Promise.allSettled(
-    RSS_FEEDS.map((feed) => fetchSingleFeed(feed.name, feed.url, cutoff))
+    RSS_FEEDS.map((feed) =>
+      fetchSingleFeedWithFallback(feed.name, feed.url, feed.fallback, cutoff)
+    )
   );
 
   for (const result of results) {
@@ -57,6 +81,25 @@ export async function fetchAllFeeds(
   }
 
   return allArticles;
+}
+
+async function fetchSingleFeedWithFallback(
+  sourceName: string,
+  url: string,
+  fallbackUrl: string | undefined,
+  cutoff: Date
+): Promise<FeedArticle[]> {
+  try {
+    return await fetchSingleFeed(sourceName, url, cutoff);
+  } catch (primaryErr) {
+    if (fallbackUrl) {
+      console.warn(
+        `[RSS] ${sourceName} primary failed (${primaryErr}), trying fallback…`
+      );
+      return await fetchSingleFeed(sourceName, fallbackUrl, cutoff);
+    }
+    throw primaryErr;
+  }
 }
 
 async function fetchSingleFeed(
