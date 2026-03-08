@@ -1,5 +1,5 @@
 import { db, schema } from "../../../db";
-import { eq, and, sql, gte, lte } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { fetchAllFeeds } from "../rss/feed-fetcher";
 import { extractConflictEvent } from "../nlp/event-extractor";
 import { geocodeFirstMatch } from "../geocoding/nominatim";

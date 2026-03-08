@@ -24,7 +24,6 @@ interface MapViewProps {
   riskMap: RiskMap;
   /** Called when the user clicks a country polygon. Passes the DB country name. */
   onCountrySelect: (country: string) => void;
-  filteredTimeRange?: [Date, Date] | null;
 }
 
 // â”€â”€ Country name normalisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -186,9 +185,7 @@ const MapView: FC<MapViewProps> = ({
               click: () => {
                 const admin: string = feature?.properties?.ADMIN ?? "";
                 const dbName = resolveDbName(admin);
-                // Pass the DB name (matched in riskMap) if found, else the
-                // GeoJSON ADMIN name so the panel can still display something.
-                onCountrySelect(riskMapRef.current[dbName] ? dbName : admin);
+                onCountrySelect(dbName);
               },
               mouseover: (e) => {
                 const l = e.target as L.Path;

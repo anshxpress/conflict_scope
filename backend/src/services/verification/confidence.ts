@@ -9,6 +9,11 @@ const TRUSTED_SOURCES = new Set([
   "associated press",
   "ap",
   "afp",
+  // Current active feed sources
+  "the guardian",
+  "dw world",
+  "sky news world",
+  "npr world",
 ]);
 
 export interface VerificationResult {

@@ -50,10 +50,10 @@ const RSS_FEEDS: FeedDef[] = [
     name: "Sky News World",
     url: "https://feeds.skynews.com/feeds/rss/world.xml",
   },
-  // GDELT — query scoped to conflict keywords with explicit maxrecords
+  // NPR World News
   {
-    name: "GDELT",
-    url: "https://api.gdeltproject.org/api/v2/doc/doc?query=conflict%20OR%20war%20OR%20attack%20OR%20airstrike%20OR%20missile&mode=ArtList&format=rss&maxrecords=75&sort=DateDesc",
+    name: "NPR World",
+    url: "https://feeds.npr.org/1004/rss.xml",
   },
 ];
 
