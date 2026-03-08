@@ -33,20 +33,13 @@ interface MapViewProps {
 // the English names Nominatim stores in the database.  This lookup normalises
 // GeoJSON names â†’ DB names before matching against the riskMap keys.
 //
+// Maps GeoJSON ADMIN property values → DB country names where they differ.
+// Natural Earth 110m uses full English names in ADMIN, so most countries need
+// no mapping at all (pass-through).  Only the exceptions are listed here.
 const GEO_TO_DB: Record<string, string> = {
   "United States of America": "United States",
-  "Dem. Rep. Congo": "Democratic Republic of the Congo",
-  "CÃ´te d'Ivoire": "Ivory Coast",
-  "Central African Rep.": "Central African Republic",
-  "S. Sudan": "South Sudan",
-  "Dominican Rep.": "Dominican Republic",
-  "Bosnia and Herz.": "Bosnia and Herzegovina",
-  "N. Cyprus": "Northern Cyprus",
-  "Eq. Guinea": "Equatorial Guinea",
-  "W. Sahara": "Western Sahara",
-  "Solomon Is.": "Solomon Islands",
-  "Marshall Is.": "Marshall Islands",
-  Micronesia: "Federated States of Micronesia",
+  "United Republic of Tanzania": "Tanzania",
+  "North Macedonia": "Macedonia",
 };
 
 function resolveDbName(geoAdmin: string): string {

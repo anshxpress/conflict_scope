@@ -46,12 +46,14 @@ export async function geocodeLocation(
       format: "json",
       limit: "1",
       addressdetails: "1",
+      "accept-language": "en",  // force English country names
     });
 
     const response = await fetch(`${NOMINATIM_BASE}/search?${params}`, {
       headers: {
         "User-Agent": "ConflictScope/1.0 (OSINT Research Platform)",
         Accept: "application/json",
+        "Accept-Language": "en",
       },
     });
 

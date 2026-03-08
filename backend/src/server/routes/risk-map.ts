@@ -5,6 +5,43 @@ import { and, eq, gte, desc, count } from "drizzle-orm";
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+/**
+ * Normalise non-English country names that Nominatim occasionally stores in
+ * the database back to standard English names so they can be matched against
+ * the GeoJSON ADMIN property on the choropleth layer.
+ */
+const COUNTRY_NORMALIZE: Record<string, string> = {
+  // Arabic
+  "لبنان": "Lebanon",
+  "سوريا": "Syria",
+  "العراق": "Iraq",
+  "الأردن": "Jordan",
+  "اليمن": "Yemen",
+  "السودان": "Sudan",
+  "ليبيا": "Libya",
+  "مصر": "Egypt",
+  "المملكة العربية السعودية": "Saudi Arabia",
+  "الإمارات العربية المتحدة": "United Arab Emirates",
+  // Persian
+  "ایران": "Iran",
+  "پاکستان": "Pakistan",
+  "افغانستان": "Afghanistan",
+  // Russian/Cyrillic
+  "Россия": "Russia",
+  "Україна": "Ukraine",
+  "Беларусь": "Belarus",
+  // Hebrew
+  "ישראל": "Israel",
+  // Greek/Turkish
+  "Κύπρος - Kıbrıs": "Cyprus",
+  // Transliteration variants
+  "Türkmenistan": "Turkmenistan",
+};
+
+function normalizeCountry(name: string): string {
+  return COUNTRY_NORMALIZE[name?.trim()] ?? name?.trim();
+}
+
 export const riskMapRoutes = new Elysia({ prefix: "/risk-map" })
   /**
    * GET /risk-map
@@ -27,7 +64,7 @@ export const riskMapRoutes = new Elysia({ prefix: "/risk-map" })
     const risk: Record<string, "red" | "orange"> = {};
 
     for (const event of recentEvents) {
-      const country = event.country?.trim();
+      const country = normalizeCountry(event.country ?? "");
       if (!country) continue;
       if (risk[country] === "red") continue;
 
