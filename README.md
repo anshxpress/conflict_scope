@@ -1,4 +1,4 @@
-C# ConflictScope
+# ConflictScope
 
 > **Open Global Conflict Intelligence Dashboard**
 >

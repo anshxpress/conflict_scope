@@ -37,14 +37,17 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
 
         if (existing.length > 0) continue;
 
-        // Run NLP extraction
+        // Run NLP extraction — returns null for entertainment/noise/off-topic
         const extracted = extractConflictEvent(
           article.title,
           article.content,
           article.sourceName
         );
 
-        if (!extracted || !extracted.isConflictRelated) continue;
+        if (!extracted || !extracted.isConflictRelated) {
+          // Rejection reason already logged inside extractConflictEvent (debug level)
+          continue;
+        }
 
         // Step 8: Geocode the location
         const geoResult = await geocodeFirstMatch(extracted.locations);

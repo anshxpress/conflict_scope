@@ -4,6 +4,7 @@ import type { FC } from "react";
 import { useCountryRisk } from "@/lib/hooks";
 import { RISK_COLORS, RISK_LABELS, EVENT_TYPE_LABELS } from "@/types";
 import type { RiskLevel, EventType } from "@/types";
+import { getFlag } from "@/lib/countryFlags";
 
 interface CountryRiskPanelProps {
   country: string;
@@ -37,7 +38,7 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
       >
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-bold text-gray-100 truncate">
-            {country}
+            {getFlag(country) ? `${getFlag(country)} ${country}` : country}
           </h2>
           {data && (
             <span

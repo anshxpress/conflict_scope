@@ -3,6 +3,7 @@
 import { FC, useEffect, useRef } from "react";
 import type { ConflictEvent } from "@/types";
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } from "@/types";
+import { formatCountry } from "@/lib/countryFlags";
 
 interface LiveEventFeedProps {
   events: ConflictEvent[];
@@ -100,7 +101,9 @@ const EventFeedItem: FC<EventFeedItemProps> = ({
               {event.title}
             </p>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] text-gray-500">{event.country}</span>
+              <span className="text-[10px] text-gray-500">
+                {formatCountry(event.country)}
+              </span>
               <span className="text-[10px] text-gray-600">•</span>
               <span className="text-[10px]" style={{ color: color + "cc" }}>
                 {EVENT_TYPE_LABELS[event.eventType]}

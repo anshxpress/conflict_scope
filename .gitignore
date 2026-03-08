@@ -30,6 +30,8 @@ Thumbs.db
 .idea/
 
 # Bun
+# bun.lock (text format, Bun 1.2+) should be committed
+# bun.lockb (binary format, Bun <1.2) — ignore legacy binary
 bun.lockb
 
 # TypeScript

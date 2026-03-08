@@ -44,10 +44,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* vars are baked in at build time by Next.js.
+        # Override for cloud: NEXT_PUBLIC_API_URL=https://your-api.onrender.com
+        NEXT_PUBLIC_API_URL: http://localhost:3001
     container_name: conflictscope-web
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NODE_ENV: production
     ports:
       - "3000:3000"
     depends_on:

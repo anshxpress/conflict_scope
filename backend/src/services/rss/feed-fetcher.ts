@@ -55,6 +55,54 @@ const RSS_FEEDS: FeedDef[] = [
     name: "NPR World",
     url: "https://feeds.npr.org/1004/rss.xml",
   },
+
+  // ── REGIONAL GAP FEEDS ──────────────────────────────────────────────────────
+
+  // France 24 — Africa (Mali, DRC, Niger, Burkina Faso, Sudan, Ethiopia)
+  {
+    name: "France 24 Africa",
+    url: "https://www.france24.com/en/africa/rss",
+  },
+  // France 24 — Middle East (Gaza, Syria, Iraq, Iran, Yemen, Lebanon)
+  {
+    name: "France 24 Middle East",
+    url: "https://www.france24.com/en/middle-east/rss",
+  },
+  // France 24 — Americas (Mexico, Colombia, Venezuela, Haiti, Brazil)
+  {
+    name: "France 24 Americas",
+    url: "https://www.france24.com/en/americas/rss",
+  },
+
+  // UN News — authoritative global (peacekeeping, UNHCR, humanitarian ops)
+  {
+    name: "UN News",
+    url: "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+  },
+
+  // ReliefWeb — humanitarian crises (displacement, aid corridors, camp sieges)
+  {
+    name: "ReliefWeb",
+    url: "https://reliefweb.int/updates/rss.xml",
+  },
+
+  // Middle East Eye — investigative depth on Gaza, Yemen, Libya, Lebanon
+  {
+    name: "Middle East Eye",
+    url: "https://www.middleeasteye.net/rss",
+  },
+
+  // The Hindu — South Asia: India, Afghanistan, Pakistan, Sri Lanka
+  {
+    name: "The Hindu",
+    url: "https://www.thehindu.com/news/international/?service=rss",
+  },
+
+  // South China Morning Post — China, Taiwan, North Korea, SE Asia (Myanmar, Philippines)
+  {
+    name: "South China Morning Post",
+    url: "https://www.scmp.com/rss/91/feed",
+  },
 ];
 
 /**
@@ -107,7 +155,24 @@ async function fetchSingleFeed(
   url: string,
   cutoff: Date
 ): Promise<FeedArticle[]> {
-  const feed = await parser.parseURL(url);
+  // Manually fetch so we can strip BOM/leading whitespace before parsing.
+  // Some feeds (e.g. UN News) prepend a UTF-8 BOM (U+FEFF) which causes
+  // rss-parser to throw "Non-whitespace before first tag".
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(15000),
+    headers: {
+      "User-Agent": "ConflictScope/1.0 (OSINT Research Platform)",
+      "Accept": "application/rss+xml, application/atom+xml, text/xml, */*",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} from ${url}`);
+  }
+  const rawText = await response.text();
+  // Strip UTF-8 BOM (U+FEFF) and any leading whitespace
+  const xmlText = rawText.replace(/^\uFEFF/, "").trimStart();
+
+  const feed = await parser.parseString(xmlText);
   const articles: FeedArticle[] = [];
 
   for (const item of feed.items ?? []) {

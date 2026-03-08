@@ -3,6 +3,7 @@
 import { FC } from "react";
 import type { EventType, ConfidenceLevel } from "@/types";
 import { EVENT_TYPE_LABELS, CONFIDENCE_LABELS } from "@/types";
+import { formatCountry } from "@/lib/countryFlags";
 
 interface FilterPanelProps {
   selectedCountry: string;
@@ -79,7 +80,7 @@ const FilterPanel: FC<FilterPanelProps> = ({
             <option value="">All Countries</option>
             {countries.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {formatCountry(c)}
               </option>
             ))}
           </select>

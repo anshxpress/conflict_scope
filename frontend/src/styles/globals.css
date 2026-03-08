@@ -1,10 +1,10 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 @import "leaflet/dist/leaflet.css";
 @import "leaflet.markercluster/dist/MarkerCluster.css";
 @import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --cs-dark: #0a0e17;
@@ -89,24 +89,71 @@ body {
   border-radius: 3px;
 }
 
-/* Custom range slider for timeline */
-input[type="range"] {
+/* ── Dual-thumb timeline range slider ──────────────────────────────────────
+   Both <input type="range"> inputs overlay each other in a position:relative
+   container. The inputs are fully transparent — the visual track is a div
+   underneath. Only the thumbs are rendered and interactive.
+   pointer-events: none on the input; pointer-events: all on the thumb so
+   one thumb never blocks the other.
+─────────────────────────────────────────────────────────────────────────── */
+.timeline-range {
   -webkit-appearance: none;
   appearance: none;
-  height: 4px;
-  background: #374151;
-  border-radius: 2px;
+  background: transparent;
+  pointer-events: none;
+  height: 100%;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
   outline: none;
 }
 
-input[type="range"]::-webkit-slider-thumb {
+/* WebKit (Chrome, Safari, Edge) */
+.timeline-range::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 4px;
+}
+.timeline-range::-webkit-slider-thumb {
   -webkit-appearance: none;
-  appearance: none;
+  pointer-events: all;
   width: 16px;
   height: 16px;
   border-radius: 50%;
   background: #ef4444;
-  cursor: pointer;
+  border: 2px solid #0a0e17;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.35);
+  cursor: grab;
+  margin-top: -6px;
+  transition: box-shadow 0.15s;
+}
+.timeline-range::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.35);
+}
+.timeline-range::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.4);
+  background: #f87171;
+}
+
+/* Firefox */
+.timeline-range::-moz-range-track {
+  background: transparent;
+  height: 4px;
+}
+.timeline-range::-moz-range-thumb {
+  pointer-events: all;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 2px solid #0a0e17;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.35);
+  cursor: grab;
+}
+.timeline-range::-moz-range-thumb:active {
+  cursor: grabbing;
+  background: #f87171;
 }
 
 /* Fade-in animation for panels */

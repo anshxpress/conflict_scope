@@ -14,6 +14,15 @@ const TRUSTED_SOURCES = new Set([
   "dw world",
   "sky news world",
   "npr world",
+  // Regional gap feeds (added Phase 6)
+  "france 24 africa",
+  "france 24 middle east",
+  "france 24 americas",
+  "un news",
+  "reliefweb",
+  "middle east eye",
+  "the hindu",
+  "south china morning post",
 ]);
 
 export interface VerificationResult {
