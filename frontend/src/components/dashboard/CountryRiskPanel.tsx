@@ -5,6 +5,7 @@ import { useCountryRisk } from "@/lib/hooks";
 import { RISK_COLORS, RISK_LABELS, EVENT_TYPE_LABELS } from "@/types";
 import type { RiskLevel, EventType } from "@/types";
 import { getFlag } from "@/lib/countryFlags";
+import { getCountryProfile } from "@/lib/countryLeaders";
 
 interface CountryRiskPanelProps {
   country: string;
@@ -25,6 +26,7 @@ const RISK_TEXT: Record<RiskLevel, string> = {
 
 const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
   const { data, isLoading } = useCountryRisk(country);
+  const profile = getCountryProfile(country);
 
   const riskLevel: RiskLevel = data?.riskLevel ?? "green";
   const color = RISK_COLORS[riskLevel];
@@ -134,6 +136,79 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
             <p className="text-xs text-gray-600 text-center py-4">
               No conflict events recorded for this country.
             </p>
+          )}
+
+          {/* Key Political Leaders */}
+          {profile && profile.leaders.length > 0 && (
+            <div>
+              <h3 className="text-[10px] uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
+                <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Key Political Leaders
+              </h3>
+              <ul className="space-y-1">
+                {profile.leaders.map((l, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between bg-cs-dark rounded px-2.5 py-2 border border-cs-border/50"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs text-gray-200 font-medium truncate block">
+                        {l.name}
+                      </span>
+                      <span className="text-[10px] text-gray-500 truncate block">
+                        {l.position}
+                      </span>
+                    </div>
+                    <span className="shrink-0 text-[10px] font-mono text-blue-400/60 ml-2">
+                      #{i + 1}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Wealthiest Individuals */}
+          {profile && profile.richest.length > 0 && (
+            <div>
+              <h3 className="text-[10px] uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
+                <svg className="w-3 h-3 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Wealthiest Individuals
+              </h3>
+              <ul className="space-y-1">
+                {profile.richest.map((r, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between bg-cs-dark rounded px-2.5 py-2 border border-cs-border/50"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs text-gray-200 font-medium truncate block">
+                        {r.name}
+                      </span>
+                      <span className="text-[10px] text-gray-500 truncate block">
+                        {r.industry}
+                      </span>
+                    </div>
+                    <span className="shrink-0 text-xs font-mono text-yellow-400 font-bold ml-2">
+                      {r.netWorth}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* No profile data fallback */}
+          {!profile && (
+            <div className="bg-cs-dark/40 rounded p-3 border border-cs-border/30 text-center">
+              <p className="text-[10px] text-gray-600">
+                Leader and billionaire data not yet available for this country.
+              </p>
+            </div>
           )}
         </div>
       ) : (
