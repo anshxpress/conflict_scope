@@ -210,7 +210,7 @@ const MapView: FC<MapViewProps> = ({
       .catch((err) =>
         console.error("[MapView] Failed to load countries GeoJSON:", err),
       );
-    // Only run on mount â€” subsequent riskMap changes use the effect below.
+    // Only run on mount - subsequent riskMap changes use the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

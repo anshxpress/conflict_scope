@@ -1,20 +1,20 @@
 import type { ConfidenceLevel } from "../../../db/schema";
 
 const TRUSTED_SOURCES = new Set([
+  // Primary wire services
   "reuters",
-  "reuters world",
-  "bbc",
+  "associated press",
+  // Primary broadcasters
   "bbc world",
   "al jazeera",
-  "associated press",
-  "ap",
-  "afp",
-  // Current active feed sources
+  "cnn international",
+  // Secondary quality sources
   "the guardian",
+  "new york times",
   "dw world",
   "sky news world",
   "npr world",
-  // Regional gap feeds (added Phase 6)
+  // Regional feeds
   "france 24 africa",
   "france 24 middle east",
   "france 24 americas",
@@ -23,6 +23,18 @@ const TRUSTED_SOURCES = new Set([
   "middle east eye",
   "the hindu",
   "south china morning post",
+  // GDELT aggregator domains (prefixed with "gdelt:")
+  "gdelt:reuters.com",
+  "gdelt:apnews.com",
+  "gdelt:bbc.com",
+  "gdelt:bbc.co.uk",
+  "gdelt:aljazeera.com",
+  "gdelt:cnn.com",
+  "gdelt:theguardian.com",
+  "gdelt:nytimes.com",
+  "gdelt:france24.com",
+  "gdelt:dw.com",
+  "gdelt:npr.org",
 ]);
 
 export interface VerificationResult {

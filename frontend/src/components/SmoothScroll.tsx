@@ -13,7 +13,10 @@ interface SmoothScrollProps {
  * Works on an element-level scroller (not document), which is necessary
  * because the app body uses overflow-hidden.
  */
-export default function SmoothScroll({ children, className }: SmoothScrollProps) {
+export default function SmoothScroll({
+  children,
+  className,
+}: SmoothScrollProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { db, schema } from "../../../db";
 import { eq, sql } from "drizzle-orm";
-import { fetchAllFeeds } from "../rss/feed-fetcher";
+import { fetchAllFeeds, fetchGdeltArticles } from "../rss/feed-fetcher";
 import { extractConflictEvent } from "../nlp/event-extractor";
 import { geocodeFirstMatch } from "../geocoding/nominatim";
 import { calculateConfidence } from "../verification/confidence";
@@ -17,10 +17,14 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
   let eventsCreated = 0;
 
   try {
-    // Step 1: Fetch new articles from all RSS feeds
-    const articles = await fetchAllFeeds(sinceMinutes);
+    // Step 1: Fetch new articles from all RSS feeds + GDELT aggregator
+    const [rssArticles, gdeltArticles] = await Promise.all([
+      fetchAllFeeds(sinceMinutes),
+      fetchGdeltArticles(sinceMinutes),
+    ]);
+    const articles = [...rssArticles, ...gdeltArticles];
     console.log(
-      `[Pipeline] Fetched ${articles.length} articles from all feeds`
+      `[Pipeline] Fetched ${articles.length} articles (${rssArticles.length} RSS + ${gdeltArticles.length} GDELT)`
     );
 
     if (articles.length === 0) return 0;

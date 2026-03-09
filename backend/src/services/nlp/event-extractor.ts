@@ -11,6 +11,19 @@ export interface ExtractedEvent {
   keywords: string[];
 }
 
+// ── Helper: word-boundary match ─────────────────────────────────────────────
+// Prevents substring false positives like "heartwarming" → "war",
+// "therapist" → "the rapist", "Israel" → "is real", etc.
+const _wbCache = new Map<string, RegExp>();
+function wordMatch(text: string, word: string): boolean {
+  let re = _wbCache.get(word);
+  if (!re) {
+    re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i");
+    _wbCache.set(word, re);
+  }
+  return re.test(text);
+}
+
 // ── War-related keyword dictionaries ────────────────────────────────────────
 
 const WAR_KEYWORDS: Record<EventType, string[]> = {
@@ -211,6 +224,21 @@ const ENTERTAINMENT_TITLE_DISQUALIFIERS: string[] = [
   // Opinion / analysis (not real events)
   "opinion:", "op-ed:", "analysis:", "editorial:",
   "book review:", "podcast review", "satire",
+  // Human-interest / feel-good / lifestyle (not conflict)
+  "heartwarming", "heart-warming",
+  "feel-good", "feelgood",
+  "wedding", "bride", "groom", "marriage ceremony",
+  "love story", "romantic",
+  "recipe", "cooking", "chef",
+  "travel guide", "vacation", "holiday destination",
+  "cute video", "adorable", "goes viral",
+  "inspiring story", "uplifting",
+  "baby born", "newborn",
+  "reunion", "reunited",
+  "fashion", "beauty tips", "skincare",
+  "bollywood", "hollywood", "tollywood", "nollywood",
+  "tv show", "reality show", "talent show",
+  "band wowing", "wowing",
 ];
 
 // ── Hard conflict title signals ──────────────────────────────────────────────
@@ -369,8 +397,10 @@ export function extractConflictEvent(
 
   if (!hasEnoughKeywords) {
     // Last chance: does the text have a weak word AND a geopolitical anchor?
+    // Use word-boundary matching for weak words to prevent substring matches
+    // like "heartwarming" → "war" or "otherapist" → "the rapist".
     const hasWeakWord = [...WEAK_STANDALONE_WORDS].some((w) =>
-      combinedText.includes(w)
+      wordMatch(combinedText, w)
     );
     const hasAnchor = GEOPOLITICAL_ANCHORS.some((a) =>
       combinedText.includes(a)
@@ -426,7 +456,7 @@ export function extractConflictEvent(
 
   const allMatchedKeywords = [
     ...specificMatches,
-    ...[...WEAK_STANDALONE_WORDS].filter((w) => combinedText.includes(w)),
+    ...[...WEAK_STANDALONE_WORDS].filter((w) => wordMatch(combinedText, w)),
   ];
 
   return {

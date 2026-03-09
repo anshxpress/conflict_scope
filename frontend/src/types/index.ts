@@ -137,8 +137,8 @@ export const RISK_COLORS: Record<RiskLevel, string> = {
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {
-  red: "High Risk — events in last 14 days",
-  orange: "Recent Activity — events 15–30 days ago",
+  red: "High Risk - events in last 14 days",
+  orange: "Recent Activity - events 15-30 days ago",
   green: "No Recent Events",
 };
 

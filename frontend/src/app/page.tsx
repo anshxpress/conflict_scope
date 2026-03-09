@@ -27,7 +27,7 @@ const MapView = dynamic(() => import("@/components/map/MapView"), {
     <div className="w-full h-full flex items-center justify-center bg-cs-dark">
       <div className="text-center space-y-3">
         <div className="inline-block w-10 h-10 border-2 border-cs-accent border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs text-gray-500">Initializing mapâ€¦</p>
+        <p className="text-xs text-gray-500">Initializing map...</p>
       </div>
     </div>
   ),
@@ -324,7 +324,7 @@ export default function DashboardPage() {
               onCountrySelect={handleCountrySelect}
             />
 
-            {/* Map legend overlay â€” risk colours + event types */}
+            {/* Map legend overlay - risk colours + event types */}
             <div className="absolute bottom-8 left-4 bg-cs-panel/90 border border-cs-border rounded-lg p-3 text-[10px] text-gray-400 z-[1000] backdrop-blur-sm space-y-3">
               {/* Country risk legend */}
               <div>
@@ -333,8 +333,8 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-1">
                   {[
-                    { color: "#ef4444", label: "Events â‰¤ 14 days" },
-                    { color: "#f97316", label: "Events 15â€“30 days" },
+                    { color: "#ef4444", label: "Events <= 14 days" },
+                    { color: "#f97316", label: "Events 15-30 days" },
                     {
                       color: "#22c55e",
                       opacity: 0.3,

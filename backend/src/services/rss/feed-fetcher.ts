@@ -25,6 +25,21 @@ interface FeedDef {
 }
 
 const RSS_FEEDS: FeedDef[] = [
+  // ── PRIMARY WIRE SERVICES ───────────────────────────────────────────────────
+
+  // Reuters — world's largest international wire service
+  {
+    name: "Reuters",
+    url: "https://www.reuters.com/world/rss",
+  },
+  // Associated Press — foundational global wire service
+  {
+    name: "Associated Press",
+    url: "https://apnews.com/hub/ap-top-news?outputType=rss",
+  },
+
+  // ── PRIMARY BROADCASTERS ────────────────────────────────────────────────────
+
   // BBC
   {
     name: "BBC World",
@@ -35,10 +50,23 @@ const RSS_FEEDS: FeedDef[] = [
     name: "Al Jazeera",
     url: "https://www.aljazeera.com/xml/rss/all.xml",
   },
+  // CNN International
+  {
+    name: "CNN International",
+    url: "http://rss.cnn.com/rss/edition_world.rss",
+  },
+
+  // ── SECONDARY QUALITY SOURCES ───────────────────────────────────────────────
+
   // The Guardian — world
   {
     name: "The Guardian",
     url: "https://www.theguardian.com/world/rss",
+  },
+  // New York Times — world
+  {
+    name: "New York Times",
+    url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
   },
   // DW (Deutsche Welle)
   {
@@ -206,5 +234,96 @@ function stripHTML(html: string): string {
     return root.textContent.trim();
   } catch {
     return html.replace(/<[^>]*>/g, "").trim();
+  }
+}
+
+// ── GDELT DOC 2.0 Aggregator ────────────────────────────────────────────────
+// Queries GDELT's global event database for English-language conflict articles
+// from reputable domains. Supplements the RSS feeds above.
+
+interface GdeltArticle {
+  url: string;
+  title: string;
+  seendate: string;     // "20260309T060000Z"
+  domain: string;
+  language: string;
+  sourcecountry: string;
+}
+
+// Only accept GDELT articles from known-quality English-language domains
+const GDELT_TRUSTED_DOMAINS = new Set([
+  "reuters.com",
+  "apnews.com",
+  "bbc.com", "bbc.co.uk",
+  "aljazeera.com",
+  "cnn.com",
+  "theguardian.com",
+  "nytimes.com",
+  "france24.com",
+  "dw.com",
+  "npr.org",
+]);
+
+/**
+ * Fetch conflict-related articles from the GDELT DOC 2.0 API.
+ * Returns articles matching conflict keywords, filtered to English +
+ * trusted domains only.
+ */
+export async function fetchGdeltArticles(
+  sinceMinutes: number = 30
+): Promise<FeedArticle[]> {
+  const timespan = `${sinceMinutes}min`;
+  const query = encodeURIComponent(
+    "(airstrike OR missile OR shelling OR bombing OR ceasefire OR invasion OR troops OR military operation)"
+  );
+  const url =
+    `https://api.gdeltproject.org/api/v2/doc/doc` +
+    `?query=${query}&mode=ArtList&maxrecords=50&format=json&timespan=${timespan}`;
+
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(20000),
+      headers: { "User-Agent": "ConflictScope/1.0 (OSINT Research Platform)" },
+    });
+
+    if (!res.ok) {
+      console.warn(`[GDELT] HTTP ${res.status}`);
+      return [];
+    }
+
+    const json = (await res.json()) as { articles?: GdeltArticle[] };
+    const raw = json.articles ?? [];
+
+    const articles: FeedArticle[] = [];
+    for (const a of raw) {
+      if (a.language !== "English") continue;
+      const domain = a.domain?.toLowerCase();
+      if (!GDELT_TRUSTED_DOMAINS.has(domain)) continue;
+
+      // Parse GDELT seendate format "20260309T060000Z"
+      const year = a.seendate.slice(0, 4);
+      const month = a.seendate.slice(4, 6);
+      const day = a.seendate.slice(6, 8);
+      const hour = a.seendate.slice(9, 11);
+      const min = a.seendate.slice(11, 13);
+      const sec = a.seendate.slice(13, 15);
+      const pubDate = new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}Z`);
+
+      articles.push({
+        title: a.title,
+        link: a.url,
+        content: "",   // GDELT doesn't provide body text; NLP uses title
+        sourceName: `GDELT:${domain}`,
+        publishedDate: pubDate,
+      });
+    }
+
+    console.log(
+      `[GDELT] Fetched ${articles.length} trusted English articles (of ${raw.length} total)`
+    );
+    return articles;
+  } catch (err) {
+    console.warn("[GDELT] Fetch failed:", err);
+    return [];
   }
 }
