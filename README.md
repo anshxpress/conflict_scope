@@ -1,183 +1,245 @@
-# ConflictScope
+<div align="center">
 
-> **Open Global Conflict Intelligence Dashboard**
->
-> A production-grade OSINT platform that monitors global conflicts in real-time using free public data sources, NLP event extraction, and interactive geospatial visualization.
+# CONFLICTSCOPE
+
+### Open-Source Global Conflict Intelligence Platform
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![Bun](https://img.shields.io/badge/Bun-1.3-f9f1e1?logo=bun&logoColor=black)](https://bun.sh)
+[![Next.js](https://img.shields.io/badge/Next.js-14-000?logo=next.js)](https://nextjs.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://postgresql.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+**Real-time OSINT monitoring of armed conflicts worldwide - powered by 18 RSS feeds, GDELT, NLP event extraction, and interactive geospatial visualization.**
+
+[Live Demo](#) &bull; [Quick Start](#-quick-start) &bull; [API Reference](#-api-reference) &bull; [Tech Stack](#-technology-stack)
+
+</div>
 
 ---
 
-## Architecture Overview
+## Why ConflictScope?
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         ConflictScope                           │
-│                                                                 │
-│  ┌──────────────┐    ┌──────────────────┐    ┌──────────────┐  │
-│  │  RSS Feeds   │───▶│  Bun Backend     │───▶│  PostgreSQL  │  │
-│  │              │    │  (Elysia.js)     │    │  (Drizzle)   │  │
-│  │ Reuters      │    │                  │    │              │  │
-│  │ BBC          │    │ • NLP Pipeline   │    │ • events     │  │
-│  │ Al Jazeera   │    │ • Geocoding      │    │ • sources    │  │
-│  │ GDELT        │    │ • Confidence     │    │ • infra      │  │
-│  └──────────────┘    │ • Scheduler      │    └──────────────┘  │
-│                      └────────┬─────────┘                      │
-│                               │ REST API                        │
-│                               ▼                                 │
-│                      ┌──────────────────┐                       │
-│                      │  Next.js 14      │                       │
-│                      │  (App Router)    │                       │
-│                      │                  │                       │
-│                      │ • Leaflet Map    │                       │
-│                      │ • Heatmaps       │                       │
-│                      │ • Clustering     │                       │
-│                      │ • Timeline       │                       │
-│                      │ • Chart.js Stats │                       │
-│                      └──────────────────┘                       │
-└─────────────────────────────────────────────────────────────────┘
-```
+Wars don't wait for the morning news. Supply lines get cut. Markets react. Civilians move. By the time legacy outlets publish a roundup, the situation on the ground has already changed.
+
+**ConflictScope** is a purpose-built intelligence dashboard that:
+
+- Ingests articles from **18 global news feeds + GDELT** every 10 minutes
+- Runs a **3-gate NLP filter** to discard entertainment, lifestyle, and duplicate content
+- Extracts **conflict events** with geolocation, event typing, and confidence scoring
+- Renders everything on a **dark-themed interactive world map** with heatmaps, clustering, and infrastructure overlays
+- Shows **country risk profiles** with political leaders, billionaires, and commodity war-impact alerts
+
+No API keys required. No paid services. Entirely self-hostable.
+
+---
+
+## Screenshots
+
+> Deploy locally and explore - the dashboard comes alive with real conflict data within the first 10-minute pipeline cycle.
 
 ---
 
 ## Features
 
-| Feature                      | Description                                       |
-| ---------------------------- | ------------------------------------------------- |
-| **Interactive World Map**    | Dark-themed Leaflet map with OSM/CARTO tiles      |
-| **Conflict Event Markers**   | Color-coded by type with animated pulse effect    |
-| **Marker Clustering**        | Automatic cluster grouping at zoom levels         |
-| **Conflict Heatmap**         | Density-based heat visualization                  |
-| **Strategic Infrastructure** | Airports, power plants, oil refineries overlaid   |
-| **NLP Event Extraction**     | compromise.js extracts locations + event types    |
-| **Geocoding**                | OSM Nominatim converts place names to coordinates |
-| **Confidence Scoring**       | Low / Medium / High based on source corroboration |
-| **Timeline Slider**          | Dual-handle range selector for temporal filtering |
-| **Filter Panel**             | Filter by country, event type, confidence level   |
-| **Live Event Feed**          | Real-time sidebar feed of recent events           |
-| **Conflict Statistics**      | Chart.js dashboards — donut, bar, and line charts |
-| **Auto-Refresh**             | Frontend polls API every 60 seconds               |
-| **10-Minute Pipeline**       | Scheduler checks RSS feeds every 10 minutes       |
+### Intelligence & Data
+
+| Feature | Description |
+|---|---|
+| **18 RSS Feeds** | Reuters, BBC, Al Jazeera, Guardian, AP, CNN International, NYT, France 24 (x3), DW, Sky News, NPR, UN News, ReliefWeb, Middle East Eye, The Hindu, SCMP |
+| **GDELT Integration** | DOC 2.0 API aggregator - queries conflict keywords, filters English-only + trusted domains |
+| **3-Gate NLP Filter** | Gate 1: Entertainment disqualifier (~95 blockers). Gate 2: Keyword threshold with word-boundary matching. Gate 3: Geopolitical anchor or conflict region validation |
+| **Confidence Scoring** | Low / Medium / High based on source trust level + multi-source corroboration |
+| **Geocoding** | OSM Nominatim converts extracted place names to coordinates (no API key) |
+| **45 Conflict Regions** | Curated watchlist for geopolitical anchor validation |
+| **10-Minute Pipeline** | Automated scheduler fetches, extracts, geocodes, and stores events continuously |
+
+### Visualization & UI
+
+| Feature | Description |
+|---|---|
+| **Interactive World Map** | Dark CARTO tiles, smooth fractional zoom (0.25 steps), animated pulse markers |
+| **Event Markers** | Color-coded by type - airstrikes (red), missile strikes (orange), drone strikes (purple), explosions (yellow), armed conflict (dark red) |
+| **Marker Clustering** | Automatic grouping with cluster counts at lower zoom levels |
+| **Conflict Heatmap** | Density-based heat layer toggle for hotspot identification |
+| **Infrastructure Overlay** | Airports, power plants, oil refineries, military bases from OpenStreetMap |
+| **Choropleth Risk Map** | Countries colored by threat level (red / orange / green) based on event density |
+| **Dual-Thumb Timeline** | 30-day window, preset buttons (24h/7d/14d/30d), date pickers, density sparkline |
+| **Live Event Feed** | Real-time sidebar with country flags, relative timestamps, event type badges |
+| **Statistics Dashboard** | Donut, bar, and line charts (Chart.js) - events by type, country, and trend |
+
+### Country Intelligence
+
+| Feature | Description |
+|---|---|
+| **Country Risk Panel** | Click any country on the map to see risk level, 14d/30d event counts, recent events |
+| **Political Leaders** | Top 10 political figures per country - heads of state, defense ministers, military chiefs, opposition leaders |
+| **Wealthiest Individuals** | Billionaires by country with net worth and industry sector |
+| **27 Country Profiles** | Ukraine, Russia, Israel, Palestine, Syria, Iran, India, China, USA, UK, Turkey, Pakistan, Saudi Arabia, Sudan, Myanmar, North Korea, South Korea, France, Germany, Japan, Ethiopia, Nigeria, Lebanon, Iraq, Yemen, Somalia, DRC, Afghanistan |
+
+### War-Impact Commodity Alerts
+
+| Feature | Description |
+|---|---|
+| **Notification Bell** | Navbar alert icon showing commodity price movements driven by conflict |
+| **Gold / Silver / Crude Oil** | Price direction, percentage change, and conflict-impact context |
+| **Coming Soon** | Live commodity ticker, custom alert thresholds, supply chain disruption tracker |
 
 ---
 
-## Data Sources (All Free)
-
-| Source                  | Type                | Notes                                 |
-| ----------------------- | ------------------- | ------------------------------------- |
-| Reuters World News      | RSS Feed            | `feeds.reuters.com/Reuters/worldNews` |
-| BBC World News          | RSS Feed            | `feeds.bbci.co.uk/news/world/rss.xml` |
-| Al Jazeera              | RSS Feed            | `aljazeera.com/xml/rss/all.xml`       |
-| GDELT Project           | RSS Feed            | Global event database, free API       |
-| OpenStreetMap Nominatim | Geocoding API       | Free, no API key required             |
-| OpenStreetMap Overpass  | Infrastructure data | Free query API                        |
-
----
-
-## Event Types
-
-| Type                    | Color    | Keywords                                |
-| ----------------------- | -------- | --------------------------------------- |
-| `airstrike`             | Red      | airstrike, air raid, aerial bombardment |
-| `missile_strike`        | Orange   | missile, rocket attack, ballistic       |
-| `explosion`             | Yellow   | explosion, blast, IED, bomb             |
-| `drone_strike`          | Purple   | drone strike, UAV, Shahed               |
-| `infrastructure_attack` | Amber    | power grid, pipeline attack             |
-| `armed_conflict`        | Dark Red | battle, shelling, artillery, offensive  |
-
----
-
-## Project Structure
+## Architecture
 
 ```
-conflictscope/
-├── backend/                    # Bun + Elysia.js API
-│   ├── db/
-│   │   ├── schema.ts           # Drizzle ORM table definitions
-│   │   ├── index.ts            # DB connection
-│   │   └── migrations/         # Auto-generated migrations
-│   ├── src/
-│   │   ├── index.ts            # Entry point
-│   │   ├── server/
-│   │   │   ├── app.ts          # Elysia app factory
-│   │   │   └── routes/
-│   │   │       ├── events.ts   # GET /events, GET /events/:id
-│   │   │       ├── infrastructure.ts  # GET /infrastructure
-│   │   │       └── stats.ts    # GET /stats, GET /stats/:country
-│   │   └── services/
-│   │       ├── rss/
-│   │       │   └── feed-fetcher.ts    # RSS ingestion
-│   │       ├── nlp/
-│   │       │   └── event-extractor.ts # NLP pipeline
-│   │       ├── geocoding/
-│   │       │   └── nominatim.ts       # OSM geocoding
-│   │       ├── verification/
-│   │       │   └── confidence.ts      # Confidence scoring
-│   │       ├── infrastructure/
-│   │       │   └── osm-seeder.ts      # OSM Overpass seeder
-│   │       └── workers/
-│   │           ├── pipeline.ts        # Main processing pipeline
-│   │           └── scheduler.ts       # 10-min cron trigger
-│   ├── scripts/
-│   │   └── seed-infrastructure.ts
-│   ├── drizzle.config.ts
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── Dockerfile
-│   └── render.yaml
-│
-├── frontend/                   # Next.js 14 App Router
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── layout.tsx      # Root layout
-│   │   │   └── page.tsx        # Main dashboard page
-│   │   ├── components/
-│   │   │   ├── map/
-│   │   │   │   └── MapView.tsx             # Leaflet map
-│   │   │   ├── timeline/
-│   │   │   │   └── TimelineSlider.tsx      # Dual-handle slider
-│   │   │   └── dashboard/
-│   │   │       ├── FilterPanel.tsx          # Country/type/confidence filters
-│   │   │       ├── EventDetailsPanel.tsx    # Event detail sidebar
-│   │   │       ├── InfrastructureLayerToggle.tsx
-│   │   │       ├── ConflictStatsPanel.tsx   # Chart.js dashboards
-│   │   │       └── LiveEventFeed.tsx        # Live event list
-│   │   ├── lib/
-│   │   │   ├── api.ts          # Typed API client
-│   │   │   └── hooks.ts        # SWR data hooks
-│   │   ├── types/
-│   │   │   └── index.ts        # All TypeScript types
-│   │   └── styles/
-│   │       └── globals.css     # Tailwind + Leaflet overrides
-│   ├── next.config.js
-│   ├── tailwind.config.js
-│   ├── Dockerfile
-│   └── package.json
-│
-├── docker-compose.yml          # Full local stack
-├── vercel.json                 # Vercel deployment
-└── README.md
+                    ┌─────────────────────────────────────────────────┐
+                    │              ConflictScope Platform             │
+                    │                                                 │
+  ┌──────────┐     │  ┌────────────────────────────────────────────┐ │
+  │ 18 RSS   │────▶│  │           Bun Backend (Elysia.js)         │ │
+  │ Feeds    │     │  │                                            │ │
+  ├──────────┤     │  │  ┌──────────┐ ┌──────────┐ ┌───────────┐ │ │
+  │ GDELT    │────▶│  │  │ 3-Gate   │ │ OSM      │ │Confidence │ │ │
+  │ DOC 2.0  │     │  │  │ NLP      │ │ Nominatim│ │ Scoring   │ │ │
+  └──────────┘     │  │  │ Filter   │ │ Geocoder │ │ Engine    │ │ │
+                    │  │  └────┬─────┘ └────┬─────┘ └─────┬─────┘ │ │
+                    │  │       └────────────┴─────────────┘       │ │
+                    │  │                    │                       │ │     ┌──────────┐
+                    │  │              Store events ───────────────│─│────▶│PostgreSQL│
+                    │  │                    │                       │ │     │(Neon DB) │
+                    │  │              REST API /api/v1              │ │     └──────────┘
+                    │  └──────────┬─────────────────────────────────┘ │
+                    │             │                                    │
+                    │             ▼                                    │
+                    │  ┌────────────────────────────────────────────┐ │
+                    │  │          Next.js 14 Frontend               │ │
+                    │  │                                            │ │
+                    │  │  Leaflet Map  │  Timeline  │  Statistics  │ │
+                    │  │  Heatmaps     │  Filters   │  Chart.js    │ │
+                    │  │  Clustering   │  Feed      │  Risk Panel  │ │
+                    │  │  Choropleth   │  Leaders   │  Commodities │ │
+                    │  └────────────────────────────────────────────┘ │
+                    └─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Quick Start (Local Development)
+## Data Sources
+
+All data sources are **free and require no API keys**.
+
+| Source | Type | Coverage |
+|---|---|---|
+| **Reuters** | RSS | Global breaking news |
+| **BBC World** | RSS | International affairs |
+| **Al Jazeera** | RSS | Middle East, Africa, Asia |
+| **Associated Press** | RSS | Wire service, global |
+| **CNN International** | RSS | Global conflicts |
+| **New York Times** | RSS | International desk |
+| **The Guardian** | RSS | World news |
+| **DW (Deutsche Welle)** | RSS | European & global affairs |
+| **Sky News World** | RSS | Breaking international |
+| **NPR World** | RSS | Analysis & reporting |
+| **France 24** | RSS (x3) | Africa, Middle East, Americas |
+| **UN News** | RSS | UN operations, peacekeeping |
+| **ReliefWeb** | RSS | Humanitarian updates |
+| **Middle East Eye** | RSS | MENA region focus |
+| **The Hindu** | RSS | South Asia |
+| **SCMP** | RSS | Asia-Pacific |
+| **GDELT DOC 2.0** | API | Global event aggregation (English, trusted domains only) |
+| **OSM Nominatim** | Geocoding | Place name to coordinates |
+| **OSM Overpass** | Query API | Infrastructure data (airports, power plants, refineries) |
+
+---
+
+## Event Classification
+
+| Type | Marker Color | Example Keywords |
+|---|---|---|
+| `airstrike` | Red | airstrike, air raid, aerial bombardment |
+| `missile_strike` | Orange | missile launch, rocket attack, ballistic |
+| `drone_strike` | Purple | drone strike, UAV attack, Shahed |
+| `explosion` | Yellow | explosion, IED, car bomb, blast |
+| `armed_conflict` | Dark Red | shelling, artillery, ground offensive, firefight |
+| `infrastructure_attack` | Amber | power grid hit, pipeline attack, bridge destroyed |
+
+---
+
+## NLP Pipeline
+
+Every 10 minutes, the pipeline processes incoming articles through a rigorous extraction chain:
+
+```
+RSS Feeds + GDELT (parallel fetch via Promise.all)
+        │
+        ▼
+   Strip HTML, normalize text, remove BOM artifacts
+        │
+        ▼
+   ┌─── GATE 1: Entertainment Disqualifier ───┐
+   │  ~95 blockers: "bollywood", "wedding",   │
+   │  "heartwarming", "recipe", "horoscope",  │
+   │  "celebrity", "box office", etc.          │
+   └────────────── pass ──────────────────────┘
+        │
+        ▼
+   ┌─── GATE 2: Conflict Keyword Threshold ───┐
+   │  Multi-word phrases + word-boundary       │
+   │  matching for weak standalone words.      │
+   │  Requires >= 2 body hits OR >= 1 title.   │
+   └────────────── pass ──────────────────────┘
+        │
+        ▼
+   ┌─── GATE 3: Geopolitical Anchor ──────────┐
+   │  Must reference a known conflict region   │
+   │  (45 countries/territories) OR contain    │
+   │  geopolitical entity via NER.             │
+   └────────────── pass ──────────────────────┘
+        │
+        ▼
+   compromise.js NER → extract place names
+        │
+        ▼
+   OSM Nominatim geocoding → lat/lon (rate-limited)
+        │
+        ▼
+   Confidence scoring (source trust + corroboration)
+        │
+        ▼
+   PostgreSQL (deduplicated by article URL)
+```
+
+---
+
+## Confidence Scoring
+
+| Condition | Level | Meaning |
+|---|---|---|
+| 1 untrusted source | **Low** | Single unverified report |
+| 1 trusted source (Reuters, BBC, AP, etc.) | **Medium** | Reliable but uncorroborated |
+| 2 sources | **Medium** | Cross-referenced |
+| 3+ sources | **High** | Multi-source verified |
+
+Trusted sources include all 18 named feeds plus 11 GDELT domain prefixes (reuters.com, apnews.com, bbc.com, etc.).
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
 - [Bun](https://bun.sh) >= 1.1
 - [Node.js](https://nodejs.org) >= 20
-- [PostgreSQL](https://postgresql.org) >= 14 (or Docker)
+- [PostgreSQL](https://postgresql.org) >= 14 (or use [Neon](https://neon.tech) free tier)
 
-### 1. Clone & Setup
+### 1. Clone
 
 ```bash
-git clone https://github.com/yourname/conflictscope.git
-cd conflictscope
+git clone https://github.com/anshxpress/conflict_scope.git
+cd conflict_scope/conflictscope
 ```
 
-### 2. Start Database
+### 2. Database
 
-Using Docker:
-
+**Option A - Docker:**
 ```bash
 docker run -d \
   --name conflictscope-db \
@@ -187,211 +249,273 @@ docker run -d \
   postgres:16-alpine
 ```
 
-### 3. Setup Backend
+**Option B - Neon (free hosted):**
+1. Create a database at [neon.tech](https://neon.tech)
+2. Copy the connection string
+
+### 3. Backend
 
 ```bash
 cd backend
-
-# Copy environment file
-cp .env.example .env
-# Edit .env and set DATABASE_URL
-
-# Install dependencies
+cp .env.example .env          # Set your DATABASE_URL
 bun install
-
-# Run database migrations
-bun run db:push
-
-# (Optional) Seed infrastructure data from OpenStreetMap
-bun run seed:infrastructure
-
-# Start the server
-bun run dev
+bun run db:push               # Apply schema to database
+bun run seed:infrastructure   # (Optional) Load airports, power plants, refineries
+bun run dev                   # Starts on http://localhost:3001
 ```
 
-The API will be available at `http://localhost:3001`.
-
-### 4. Setup Frontend
+### 4. Frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
-npm install
-
-# Copy environment
-cp .env.local.example .env.local
-
-# Start development server
-npm run dev
+bun install
+bun run dev                   # Starts on http://localhost:3000
 ```
 
-The dashboard will be available at `http://localhost:3000`.
-
-### 5. Full Stack with Docker Compose
+### 5. Docker Compose (Full Stack)
 
 ```bash
-# From the project root
 docker compose up --build
 ```
 
-| Service      | URL                          |
-| ------------ | ---------------------------- |
-| Frontend     | http://localhost:3000        |
-| Backend API  | http://localhost:3001        |
-| Health Check | http://localhost:3001/health |
+| Service | URL |
+|---|---|
+| Dashboard | http://localhost:3000 |
+| API | http://localhost:3001 |
+| Health | http://localhost:3001/health |
+
+> The pipeline runs its first cycle immediately on startup. Within 10 minutes you'll have live conflict data on the map.
 
 ---
 
 ## API Reference
 
-### Events
+Base URL: `/api/v1`
 
-```
-GET /api/v1/events
-```
+### GET `/events`
 
-Query parameters:
+Fetch conflict events with filtering and pagination.
 
-| Param        | Type     | Description                           |
-| ------------ | -------- | ------------------------------------- |
-| `country`    | string   | Filter by country name                |
-| `type`       | string   | Filter by event type                  |
-| `confidence` | string   | `low`, `medium`, `high`               |
-| `from`       | ISO date | Start of time range                   |
-| `to`         | ISO date | End of time range                     |
-| `limit`      | number   | Max results (default: 200, max: 1000) |
-| `offset`     | number   | Pagination offset                     |
+| Parameter | Type | Description |
+|---|---|---|
+| `country` | string | Filter by country name |
+| `type` | string | Filter by event type |
+| `confidence` | string | `low`, `medium`, `high` |
+| `from` | ISO 8601 | Start of time range |
+| `to` | ISO 8601 | End of time range |
+| `limit` | number | Max results (default: 200, max: 1000) |
+| `offset` | number | Pagination offset |
 
-```
-GET /api/v1/events/:id
-```
+### GET `/events/:id`
 
-Returns event with all corroborating sources.
+Single event with all corroborating sources.
 
-### Infrastructure
+### GET `/infrastructure`
 
-```
-GET /api/v1/infrastructure?type=airport&country=Ukraine
-```
+| Parameter | Type | Description |
+|---|---|---|
+| `type` | string | `airport`, `power_plant`, `oil_refinery`, `military_base` |
+| `country` | string | Filter by country |
 
-### Statistics
+### GET `/stats`
 
-```
-GET /api/v1/stats
-GET /api/v1/stats/:country
-```
+Global statistics: total events, breakdown by type, country, and monthly trends.
 
----
+### GET `/stats/:country`
 
-## Deployment
+Country-specific statistics with monthly trend data.
 
-### Frontend → Vercel (Free Tier)
+### GET `/risk-map`
 
-1. Connect your repo to Vercel
-2. Set root directory to `frontend`
-3. Set environment variable: `NEXT_PUBLIC_API_URL=https://your-api.onrender.com`
-4. Deploy
+Returns country-level risk assessment (`red` / `orange` / `green`) based on event density over 14/30 day windows.
 
-### Backend → Render (Free Tier)
+### GET `/risk-map/:country`
 
-1. Connect your repo to Render
-2. Create a new **Web Service** → select `backend/` directory
-3. Set environment:
-   - `DATABASE_URL` → your Neon/Supabase connection string
-   - `FRONTEND_URL` → your Vercel URL
-4. Deploy using the provided `render.yaml`
-
-### Database → Neon or Supabase (Free Tier)
-
-1. Create a free PostgreSQL database at [neon.tech](https://neon.tech) or [supabase.com](https://supabase.com)
-2. Copy the connection string
-3. Run migrations: `bun run db:push`
+Detailed risk breakdown for a single country including recent events list.
 
 ---
 
 ## Configuration
 
-### Backend Environment Variables
+### Backend Environment
 
-| Variable              | Default       | Description                  |
-| --------------------- | ------------- | ---------------------------- |
-| `DATABASE_URL`        | required      | PostgreSQL connection string |
-| `PORT`                | `3001`        | Server port                  |
-| `NODE_ENV`            | `development` | Environment                  |
-| `FEED_CHECK_INTERVAL` | `600000`      | Feed polling interval (ms)   |
-| `NOMINATIM_BASE_URL`  | OSM URL       | Geocoding API base URL       |
-| `FRONTEND_URL`        | `*`           | CORS allowed origin          |
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | *required* | PostgreSQL connection string |
+| `PORT` | `3001` | API server port |
+| `NODE_ENV` | `development` | Environment mode |
+| `FEED_CHECK_INTERVAL` | `600000` | Pipeline interval in ms (10 min) |
+| `NOMINATIM_BASE_URL` | OSM default | Geocoding API base |
+| `FRONTEND_URL` | `*` | CORS allowed origin |
 
-### Frontend Environment Variables
+### Frontend Environment
 
-| Variable              | Default                 | Description     |
-| --------------------- | ----------------------- | --------------- |
+| Variable | Default | Description |
+|---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:3001` | Backend API URL |
 
 ---
 
-## NLP Pipeline Details
+## Deployment
 
-The pipeline processes each article through these stages:
+### Frontend - Vercel (Free)
 
-```
-1. Fetch RSS feeds (Reuters, BBC, Al Jazeera, GDELT)
-       ↓
-2. Strip HTML, normalize text
-       ↓
-3. War keyword matching (40+ keywords across 6 event types)
-       ↓ (skip non-conflict articles)
-4. compromise.js NER → extract Place names
-       ↓
-5. Country detection (known conflict region matching)
-       ↓ (skip if no country found)
-6. OSM Nominatim geocoding → lat/lon
-       ↓ (skip if geocoding fails)
-7. Confidence scoring (1 source=low, 2=medium, 3+=high)
-       ↓
-8. Store in PostgreSQL (deduplication by article URL)
-```
+1. Connect repo to [Vercel](https://vercel.com)
+2. Root directory: `frontend`
+3. Set `NEXT_PUBLIC_API_URL` to your backend URL
+4. Deploy
+
+### Backend - Render (Free)
+
+1. Connect repo to [Render](https://render.com)
+2. Create Web Service from `backend/` directory
+3. Set `DATABASE_URL` and `FRONTEND_URL`
+4. Uses the included `render.yaml`
+
+### Database - Neon (Free)
+
+1. Create a free PostgreSQL database at [neon.tech](https://neon.tech)
+2. Copy connection string to backend's `DATABASE_URL`
+3. Run `bun run db:push`
 
 ---
 
-## Confidence Scoring
+## Project Structure
 
-| Sources                            | Score  | Meaning                  |
-| ---------------------------------- | ------ | ------------------------ |
-| 1 source (untrusted)               | Low    | Single unverified report |
-| 1 source (trusted: Reuters/BBC/AJ) | Medium | Single trusted report    |
-| 2 sources                          | Medium | Corroborated             |
-| 3+ sources                         | High   | Multi-source verified    |
+```
+conflictscope/
+├── backend/                         # Bun + Elysia.js REST API
+│   ├── db/
+│   │   ├── schema.ts                # Drizzle ORM table definitions
+│   │   └── index.ts                 # DB connection (pooled, hardened)
+│   ├── src/
+│   │   ├── index.ts                 # Entry point + global error handlers
+│   │   ├── server/
+│   │   │   ├── app.ts               # Elysia app factory
+│   │   │   └── routes/
+│   │   │       ├── events.ts        # Event CRUD + filtering
+│   │   │       ├── infrastructure.ts
+│   │   │       ├── stats.ts         # Statistics + country breakdown
+│   │   │       └── risk-map.ts      # Choropleth risk assessment
+│   │   └── services/
+│   │       ├── rss/feed-fetcher.ts          # 18 RSS feeds + GDELT aggregator
+│   │       ├── nlp/event-extractor.ts       # 3-gate NLP pipeline
+│   │       ├── geocoding/nominatim.ts       # OSM geocoding
+│   │       ├── verification/confidence.ts   # Source trust + scoring
+│   │       ├── infrastructure/osm-seeder.ts # Overpass API seeder
+│   │       └── workers/
+│   │           ├── pipeline.ts              # RSS + GDELT parallel fetch → process → store
+│   │           └── scheduler.ts             # 10-minute interval trigger
+│   ├── scripts/
+│   │   ├── seed-events.ts
+│   │   └── seed-infrastructure.ts
+│   ├── Dockerfile
+│   └── render.yaml
+│
+├── frontend/                        # Next.js 14 (App Router)
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── layout.tsx
+│   │   │   └── page.tsx             # Main dashboard
+│   │   ├── components/
+│   │   │   ├── map/MapView.tsx              # Leaflet + heatmap + clusters + choropleth
+│   │   │   ├── timeline/TimelineSlider.tsx  # Dual-thumb with sparkline
+│   │   │   ├── SmoothScroll.tsx             # Lenis smooth scrolling wrapper
+│   │   │   └── dashboard/
+│   │   │       ├── FilterPanel.tsx
+│   │   │       ├── EventDetailsPanel.tsx
+│   │   │       ├── InfrastructureLayerToggle.tsx
+│   │   │       ├── ConflictStatsPanel.tsx
+│   │   │       ├── LiveEventFeed.tsx
+│   │   │       ├── CountryRiskPanel.tsx     # Risk + leaders + billionaires
+│   │   │       └── NotificationBell.tsx     # Commodity war-impact alerts
+│   │   ├── lib/
+│   │   │   ├── api.ts               # Typed API client
+│   │   │   ├── hooks.ts             # SWR data fetching hooks
+│   │   │   ├── countryFlags.ts      # 130+ country flag emoji mapping
+│   │   │   └── countryLeaders.ts    # 27 country political + billionaire profiles
+│   │   ├── types/index.ts           # All TypeScript interfaces + constants
+│   │   └── styles/globals.css
+│   ├── public/data/countries.geojson
+│   ├── Dockerfile
+│   └── tailwind.config.js
+│
+├── docker-compose.yml
+├── vercel.json
+└── README.md
+```
 
 ---
 
 ## Technology Stack
 
-| Layer             | Technology                     |
-| ----------------- | ------------------------------ |
-| Backend Runtime   | Bun 1.1+                       |
-| Backend Framework | Elysia.js                      |
-| Database          | PostgreSQL 16                  |
-| ORM               | Drizzle ORM                    |
-| NLP               | compromise.js, natural         |
-| Geocoding         | OpenStreetMap Nominatim (free) |
-| Map Engine        | Leaflet.js                     |
-| Map Tiles         | OpenStreetMap / CARTO Dark     |
-| Heatmap           | Leaflet.heat plugin            |
-| Clustering        | Leaflet.markercluster          |
-| Frontend          | Next.js 14 (App Router)        |
-| Styling           | TailwindCSS                    |
-| Charts            | Chart.js + react-chartjs-2     |
-| Data Fetching     | SWR                            |
-| Deployment (API)  | Render (free tier)             |
-| Deployment (Web)  | Vercel (free tier)             |
-| Deployment (DB)   | Neon / Supabase (free tier)    |
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Runtime** | Bun 1.3 | Backend JavaScript runtime |
+| **API Framework** | Elysia.js | Type-safe HTTP server |
+| **Database** | PostgreSQL 16 | Event + infrastructure storage |
+| **ORM** | Drizzle ORM | Type-safe schema + queries |
+| **NLP** | compromise.js + natural | Named Entity Recognition + text processing |
+| **Geocoding** | OSM Nominatim | Free place name to lat/lon |
+| **Frontend** | Next.js 14 (App Router) | React server/client components |
+| **Map** | Leaflet.js | Interactive map with CARTO dark tiles |
+| **Heatmap** | leaflet.heat | Density visualization |
+| **Clustering** | leaflet.markercluster | Event marker grouping |
+| **Charts** | Chart.js + react-chartjs-2 | Statistical dashboards |
+| **Styling** | TailwindCSS | Utility-first dark theme |
+| **Smooth Scroll** | Lenis | Sub-pixel smooth scrolling on panels |
+| **Data Fetching** | SWR | Stale-while-revalidate with auto-refresh |
+| **Deployment** | Vercel + Render + Neon | All free tier |
+
+---
+
+## Stability & Resilience
+
+The backend is hardened for continuous unattended operation:
+
+- **Global error handlers** - `uncaughtException` and `unhandledRejection` are caught and logged without crashing the process
+- **Graceful shutdown** - SIGINT/SIGTERM handlers stop the scheduler and close the server cleanly
+- **DB connection pool** - `max: 10`, `idle_timeout: 20s`, `connect_timeout: 15s`, `max_lifetime: 300s`
+- **Rate-limited geocoding** - Respects Nominatim's usage policy with delays between requests
+- **Deduplication** - Events are deduplicated by article URL to prevent duplicate markers
+
+---
+
+## Roadmap
+
+- [ ] Live commodity price ticker (gold, silver, crude oil) via free APIs
+- [ ] Custom alert thresholds for price spike notifications
+- [ ] Supply chain disruption tracker
+- [ ] Refugee movement corridor visualization
+- [ ] Satellite imagery overlay for damage assessment
+- [ ] Telegram/Signal channel ingestion
+- [ ] Historical conflict timeline playback
+- [ ] Multi-language NLP support (Arabic, Ukrainian, Russian)
+
+---
+
+## Contributing
+
+Contributions are welcome. Please open an issue first to discuss significant changes.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
 
 ---
 
 ## License
 
-MIT — free to use, modify, and deploy for research and educational purposes.
+MIT - free to use, modify, and deploy for research, journalism, and educational purposes.
 
-> **Disclaimer:** ConflictScope relies on publicly available open-source intelligence. Data accuracy depends on source quality and NLP extraction. Always cross-reference with primary sources before drawing conclusions.
+---
+
+<div align="center">
+
+**Built for those who need to know what's happening - before it makes the headlines.**
+
+> **Disclaimer:** ConflictScope is an open-source intelligence tool that relies on publicly available data. Accuracy depends on source quality and NLP extraction fidelity. Always cross-reference with primary sources and official reports before making decisions based on this data. This tool is intended for research, journalism, and humanitarian awareness - not for military operational use.
+
+</div>
