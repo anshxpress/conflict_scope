@@ -17,6 +17,7 @@ import ConflictStatsPanel from "@/components/dashboard/ConflictStatsPanel";
 import LiveEventFeed from "@/components/dashboard/LiveEventFeed";
 import CountryRiskPanel from "@/components/dashboard/CountryRiskPanel";
 import TimelineSlider from "@/components/timeline/TimelineSlider";
+import SmoothScroll from "@/components/SmoothScroll";
 import type { ConflictEvent, InfrastructureType, RiskMap } from "@/types";
 
 // Dynamically import MapView to avoid SSR issues with Leaflet
@@ -220,7 +221,7 @@ export default function DashboardPage() {
             leftPanelOpen ? "w-72" : "w-0"
           } overflow-hidden`}
         >
-          <div className="w-72 flex flex-col h-full overflow-y-auto p-3 gap-3">
+          <SmoothScroll className="w-72 flex flex-col h-full overflow-y-auto p-3 gap-3">
             {/* Sidebar tabs */}
             <div className="flex bg-cs-dark rounded-lg p-0.5 shrink-0">
               {(["feed", "filters", "stats"] as const).map((tab) => (
@@ -280,7 +281,7 @@ export default function DashboardPage() {
                 selectedCountry={selectedCountry}
               />
             )}
-          </div>
+          </SmoothScroll>
         </div>
 
         {/* Left panel toggle button */}
@@ -405,7 +406,7 @@ export default function DashboardPage() {
             rightPanelVisible ? "w-80" : "w-0"
           }`}
         >
-          <div className="w-80 h-full overflow-y-auto">
+          <SmoothScroll className="w-80 h-full overflow-y-auto">
             {selectedMapCountry && (
               <CountryRiskPanel
                 country={selectedMapCountry}
@@ -426,7 +427,7 @@ export default function DashboardPage() {
                 />
               </div>
             )}
-          </div>
+          </SmoothScroll>
         </div>
       </div>
     </div>

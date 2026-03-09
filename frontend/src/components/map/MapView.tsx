@@ -143,6 +143,12 @@ const MapView: FC<MapViewProps> = ({
       attributionControl: true,
       minZoom: 2,
       maxZoom: 18,
+      // Smooth zoom: fractional steps + easing
+      zoomSnap: 0.25,
+      zoomDelta: 0.25,
+      wheelDebounceTime: 80,
+      wheelPxPerZoomLevel: 120,
+      zoomAnimation: true,
     });
 
     L.tileLayer(
