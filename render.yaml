@@ -1,0 +1,20 @@
+# ConflictScope Backend - Render deployment config
+services:
+  - type: web
+    name: conflictscope-api
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Set in Render dashboard
+      - key: PORT
+        value: "3001"
+      - key: NODE_ENV
+        value: production
+      - key: FEED_CHECK_INTERVAL
+        value: "600000"
+      - key: FRONTEND_URL
+        sync: false # Set to your Vercel URL after frontend deploy
