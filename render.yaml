@@ -2,9 +2,10 @@
 services:
   - type: web
     name: conflictscope-api
-    env: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    env: node
+    rootDir: backend
+    buildCommand: bun install --frozen-lockfile --production
+    startCommand: bun run src/index.ts
     plan: free
     healthCheckPath: /health
     envVars:

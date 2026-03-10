@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "ConflictScope - Open Global Conflict Intelligence Backend",
   "type": "module",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
