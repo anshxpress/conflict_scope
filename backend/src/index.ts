@@ -26,8 +26,11 @@ const server = app.listen(PORT, () => {
   ╚══════════════════════════════════════════════╝
   `);
 
-  // Start the RSS feed processing scheduler
-  startScheduler();
+  // Start the in-process scheduler unless Railway cron service is used instead.
+  // Set ENABLE_SCHEDULER=false on the web service when using a separate cron worker.
+  if (process.env.ENABLE_SCHEDULER !== "false") {
+    startScheduler();
+  }
 });
 
 // ── Graceful shutdown ────────────────────────────────────────────────────────
