@@ -8,14 +8,3 @@ healthcheckPath = "/health"
 healthcheckTimeout = 10
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
-
-# ── Required environment variables (set in Railway dashboard) ─────────────
-# DATABASE_URL      Supabase connection string (include ?sslmode=require)
-# FRONTEND_URL      Vercel production URL for CORS  e.g. https://conflictscope.vercel.app
-# NODE_ENV          production
-# ENABLE_SCHEDULER  false  (disable in-process scheduler when cron worker is active)
-#
-# ── Railway cron worker service (separate service in Railway dashboard) ───
-# Start command : bun run src/worker.ts
-# Schedule      : */10 * * * *   (every 10 minutes)
-# Requires same env vars: DATABASE_URL, NODE_ENV

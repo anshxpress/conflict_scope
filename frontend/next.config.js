@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Standalone output is for Docker self-hosting only.
+  // Vercel manages its own output format — skip this when deploying to Vercel.
+  ...(process.env.VERCEL ? {} : { output: "standalone" }),
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
   },
