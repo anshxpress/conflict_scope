@@ -27,7 +27,12 @@ const server = app.listen(PORT, () => {
   `);
 
   // Start the RSS feed processing scheduler
-  startScheduler();
+  // Set DISABLE_SCHEDULER=true when GitHub Actions handles the worker cron.
+  if (process.env.DISABLE_SCHEDULER !== "true") {
+    startScheduler();
+  } else {
+    console.log("[Server] Scheduler disabled — workers handled by GitHub Actions.");
+  }
 });
 
 // ── Graceful shutdown ────────────────────────────────────────────────────────

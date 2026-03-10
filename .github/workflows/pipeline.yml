@@ -1,0 +1,33 @@
+name: RSS Pipeline
+
+on:
+  schedule:
+    # Run every 10 minutes
+    - cron: "*/10 * * * *"
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  run-pipeline:
+    name: Fetch & Process Conflict Events
+    runs-on: ubuntu-latest
+    timeout-minutes: 8 # must finish before next 10-min window
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: backend
+        run: bun install --frozen-lockfile --production
+
+      - name: Run pipeline
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NODE_ENV: production
+        run: bun run scripts/run-pipeline.ts
