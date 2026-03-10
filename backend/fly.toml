@@ -1,0 +1,25 @@
+app = "conflictscope-api"
+primary_region = "sin" # Singapore — change to: iad (US East), lhr (London), fra (Frankfurt)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  NODE_ENV = "production"
+  FEED_CHECK_INTERVAL = "600000"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true   # free tier: spins down when idle
+  auto_start_machines = true  # auto-wakes on request
+  min_machines_running = 0    # set to 1 to avoid cold starts (costs money)
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 100
+
+[[vm]]
+  size = "shared-cpu-1x"  # free tier machine size
