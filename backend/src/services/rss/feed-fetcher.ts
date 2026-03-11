@@ -131,6 +131,25 @@ const RSS_FEEDS: FeedDef[] = [
     name: "South China Morning Post",
     url: "https://www.scmp.com/rss/91/feed",
   },
+
+  // ── MARITIME / SHIPPING THREAT FEEDS ────────────────────────────────────────
+
+  // gCaptain — #1 maritime news source, covers ship attacks, Hormuz, Bab el-Mandeb
+  {
+    name: "gCaptain",
+    url: "https://gcaptain.com/feed/",
+  },
+  // Lloyd's List — authoritative shipping intelligence
+  {
+    name: "Lloyd's List",
+    url: "https://lloydslist.maritimeintelligence.informa.com/rss-feeds",
+    fallback: "https://gcaptain.com/feed/",
+  },
+  // Maritime Executive — vessel incidents, piracy, armed attack reports
+  {
+    name: "Maritime Executive",
+    url: "https://maritime-executive.com/rss/articles",
+  },
 ];
 
 /**
