@@ -7,8 +7,8 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
-// Supabase passwords often contain special characters (@, #, !, etc.) that
-// break URL parsing. Parse the URL and re-encode the password to be safe.
+// Managed PostgreSQL passwords often contain special characters (@, #, !, etc.)
+// that break URL parsing. Parse the URL and re-encode the password to be safe.
 function sanitizeDbUrl(url: string): string {
   try {
     const u = new URL(url);
@@ -27,7 +27,7 @@ function sanitizeDbUrl(url: string): string {
 
 const safeConnectionString = sanitizeDbUrl(connectionString);
 
-// Supabase (and most managed PostgreSQL providers) require SSL in production.
+// Managed PostgreSQL providers (Neon, Supabase, etc.) require SSL in production.
 // In local dev the docker-compose postgres has no SSL, so we disable it.
 const isProd = process.env.NODE_ENV === "production";
 
