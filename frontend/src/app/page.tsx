@@ -17,6 +17,7 @@ import ConflictStatsPanel from "@/components/dashboard/ConflictStatsPanel";
 import LiveEventFeed from "@/components/dashboard/LiveEventFeed";
 import CountryRiskPanel from "@/components/dashboard/CountryRiskPanel";
 import NotificationBell from "@/components/dashboard/NotificationBell";
+import UpdatesPanel from "@/components/dashboard/UpdatesPanel";
 import TimelineSlider from "@/components/timeline/TimelineSlider";
 import SmoothScroll from "@/components/SmoothScroll";
 import type { ConflictEvent, InfrastructureType, RiskMap } from "@/types";
@@ -188,6 +189,7 @@ export default function DashboardPage() {
 
         {/* Badges: event count + active hot-zone count */}
         <div className="ml-auto flex items-center gap-3">
+          <UpdatesPanel />
           <NotificationBell />
           <div className="h-4 w-px bg-cs-border" />
           <div className="flex items-center gap-1.5">
