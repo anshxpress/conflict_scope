@@ -8,7 +8,11 @@ import type {
   CountryRiskDetails,
 } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" && window.location.hostname !== "localhost"
+    ? "https://conflictscope-api.onrender.com"
+    : "http://localhost:3001");
 const API_BASE = `${API_URL}/api/v1`;
 
 async function fetchJSON<T>(path: string): Promise<T> {
