@@ -27,9 +27,12 @@ function sanitizeDbUrl(url: string): string {
 
 const safeConnectionString = sanitizeDbUrl(connectionString);
 
-// Managed PostgreSQL providers (Neon, Supabase, etc.) require SSL in production.
-// In local dev the docker-compose postgres has no SSL, so we disable it.
-const isProd = process.env.NODE_ENV === "production";
+// Cloud providers (Neon, Supabase) require SSL. Docker-compose postgres does not.
+// Auto-detect: if the URL contains sslmode=require, enable SSL regardless of NODE_ENV.
+const needsSsl =
+  process.env.NODE_ENV === "production" ||
+  connectionString.includes("sslmode=require") ||
+  connectionString.includes("neon.tech");
 
 const client = postgres(safeConnectionString, {
   max: 10,
@@ -37,7 +40,7 @@ const client = postgres(safeConnectionString, {
   connect_timeout: 15,        // fail fast instead of hanging
   max_lifetime: 60 * 5,       // recycle connections every 5 min
   connection: { application_name: "conflictscope" },
-  ssl: isProd ? { rejectUnauthorized: false } : false,
+  ssl: needsSsl ? "require" : false,
 });
 export const db = drizzle(client, { schema });
 
