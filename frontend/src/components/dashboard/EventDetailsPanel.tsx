@@ -1,12 +1,16 @@
 "use client";
 
 import { FC } from "react";
-import type { ConflictEvent } from "@/types";
+import type { ConflictEvent, ImpactType, ImpactSeverity } from "@/types";
 import {
   EVENT_TYPE_LABELS,
   EVENT_TYPE_COLORS,
   CONFIDENCE_LABELS,
   CONFIDENCE_COLORS,
+  IMPACT_TYPE_LABELS,
+  IMPACT_TYPE_ICONS,
+  SEVERITY_COLORS,
+  SEVERITY_LABELS,
 } from "@/types";
 
 interface EventDetailsPanelProps {
@@ -136,6 +140,46 @@ const EventDetailsPanel: FC<EventDetailsPanelProps> = ({ event, onClose }) => {
                       {new Date(src.publishedDate).toLocaleDateString()}
                     </span>
                   )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Impacts */}
+        {event.impacts && event.impacts.length > 0 && (
+          <div className="mb-3">
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+              Impacts ({event.impacts.length})
+            </div>
+            <ul className="space-y-1">
+              {event.impacts.map((imp) => (
+                <li
+                  key={imp.id}
+                  className="flex items-center gap-2 bg-cs-dark rounded px-2 py-1.5 border border-cs-border/40"
+                >
+                  <span className="text-xs shrink-0">
+                    {IMPACT_TYPE_ICONS[imp.impactType as ImpactType] ?? "⚠️"}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[11px] text-gray-200 block truncate">
+                      {IMPACT_TYPE_LABELS[imp.impactType as ImpactType] ?? imp.impactType.replace(/_/g, " ")}
+                    </span>
+                    {imp.description && (
+                      <span className="text-[10px] text-gray-500 block truncate">
+                        {imp.description}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+                    style={{
+                      color: SEVERITY_COLORS[imp.severity as ImpactSeverity] ?? "#6b7280",
+                      backgroundColor: `${SEVERITY_COLORS[imp.severity as ImpactSeverity] ?? "#6b7280"}20`,
+                    }}
+                  >
+                    {SEVERITY_LABELS[imp.severity as ImpactSeverity] ?? imp.severity}
+                  </span>
                 </li>
               ))}
             </ul>

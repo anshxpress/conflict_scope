@@ -1,12 +1,12 @@
 import { db, schema } from "../../../db";
-import { eq, sql } from "drizzle-orm";
+import { eq, gte, sql, count } from "drizzle-orm";
 import { fetchAllFeeds, fetchGdeltArticles } from "../rss/feed-fetcher";
 import { extractConflictEvent } from "../nlp/event-extractor";
 import { geocodeFirstMatch } from "../geocoding/nominatim";
 import { calculateConfidence } from "../verification/confidence";
 
 /**
- * Main pipeline: Fetch → Extract → Geocode → Store
+ * Main pipeline: Fetch → Store Article → Extract → Geocode → Store Event + Impacts → Risk
  *
  * Runs on a scheduled interval to process new conflict events from RSS feeds.
  * @param sinceMinutes  How far back to look in RSS feeds (default 30 min).
@@ -15,6 +15,8 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
   console.log(`\n[Pipeline] Starting conflict event pipeline (lookback: ${sinceMinutes}min)...`);
   const startTime = Date.now();
   let eventsCreated = 0;
+  let impactsCreated = 0;
+  let articlesStored = 0;
 
   try {
     // Step 1: Fetch new articles from all RSS feeds + GDELT aggregator
@@ -27,19 +29,42 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
       `[Pipeline] Fetched ${articles.length} articles (${rssArticles.length} RSS + ${gdeltArticles.length} GDELT)`
     );
 
-    if (articles.length === 0) return 0;
+    if (articles.length === 0) {
+      await recalculateCountryRisk();
+      return 0;
+    }
 
     // Step 2-7: Process each article through NLP
     for (const article of articles) {
       try {
-        // Check for duplicate by URL
-        const existing = await db
+        // Check for duplicate by URL (in both sources and articles tables)
+        const [existingSource] = await db
           .select({ id: schema.sources.id })
           .from(schema.sources)
           .where(eq(schema.sources.articleUrl, article.link))
           .limit(1);
 
-        if (existing.length > 0) continue;
+        if (existingSource) continue;
+
+        // Store raw article
+        let articleId: string | undefined;
+        try {
+          const [stored] = await db
+            .insert(schema.articles)
+            .values({
+              title: article.title,
+              content: article.content,
+              source: article.sourceName,
+              url: article.link,
+              publishedAt: article.publishedDate,
+            })
+            .onConflictDoNothing({ target: schema.articles.url })
+            .returning({ id: schema.articles.id });
+          articleId = stored?.id;
+          if (articleId) articlesStored++;
+        } catch {
+          // Article may already exist - that's fine, continue
+        }
 
         // Run NLP extraction — returns null for entertainment/noise/off-topic
         const extracted = extractConflictEvent(
@@ -49,7 +74,6 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
         );
 
         if (!extracted || !extracted.isConflictRelated) {
-          // Rejection reason already logged inside extractConflictEvent (debug level)
           continue;
         }
 
@@ -65,7 +89,7 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
         // Calculate confidence
         const verification = calculateConfidence([article.sourceName]);
 
-        // Step 9: Store in database
+        // Step 9: Store event in database
         const [event] = await db
           .insert(schema.events)
           .values({
@@ -78,6 +102,7 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
             timestamp: article.publishedDate,
             confidenceScore: verification.confidence,
             sourceUrl: article.link,
+            articleId: articleId ?? null,
           })
           .returning({ id: schema.events.id });
 
@@ -89,9 +114,22 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
           publishedDate: article.publishedDate,
         });
 
+        // Store extracted impacts
+        if (extracted.impacts.length > 0) {
+          await db.insert(schema.impacts).values(
+            extracted.impacts.map((imp) => ({
+              eventId: event.id,
+              impactType: imp.impactType,
+              description: imp.description,
+              severity: imp.severity,
+            }))
+          );
+          impactsCreated += extracted.impacts.length;
+        }
+
         eventsCreated++;
         console.log(
-          `[Pipeline] Created event: "${extracted.title}" [${extracted.eventType}] in ${geoResult.country}`
+          `[Pipeline] Created event: "${extracted.title}" [${extracted.eventType}] in ${geoResult.country} (${extracted.impacts.length} impacts)`
         );
       } catch (err) {
         console.error(
@@ -103,13 +141,16 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
 
     // Cross-reference: update confidence for events with multiple sources
     await updateMultiSourceConfidence();
+
+    // Recalculate persisted country risk levels
+    await recalculateCountryRisk();
   } catch (err) {
     console.error("[Pipeline] Fatal pipeline error:", err);
   }
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(
-    `[Pipeline] Complete. Created ${eventsCreated} events in ${duration}s\n`
+    `[Pipeline] Complete. Created ${eventsCreated} events, ${impactsCreated} impacts, ${articlesStored} articles in ${duration}s\n`
   );
   return eventsCreated;
 }
@@ -139,4 +180,63 @@ async function updateMultiSourceConfidence(): Promise<void> {
       .set({ confidenceScore: newConfidence })
       .where(eq(schema.events.id, eventId));
   }
+}
+
+/**
+ * Recalculate and persist country-level risk scores in the country_risk table.
+ * Called after every pipeline run.
+ */
+async function recalculateCountryRisk(): Promise<void> {
+  const now = Date.now();
+  const fourteenDaysAgo = new Date(now - 14 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+
+  // Get event counts per country for 14d and 30d windows
+  const recentEvents = await db
+    .select({
+      country: schema.events.country,
+      timestamp: schema.events.timestamp,
+    })
+    .from(schema.events)
+    .where(gte(schema.events.timestamp, thirtyDaysAgo));
+
+  const countryCounts: Record<string, { e14: number; e30: number }> = {};
+  for (const ev of recentEvents) {
+    const c = ev.country;
+    if (!c) continue;
+    if (!countryCounts[c]) countryCounts[c] = { e14: 0, e30: 0 };
+    countryCounts[c].e30++;
+    if (new Date(ev.timestamp).getTime() >= fourteenDaysAgo.getTime()) {
+      countryCounts[c].e14++;
+    }
+  }
+
+  // Upsert each country's risk
+  for (const [country, counts] of Object.entries(countryCounts)) {
+    const riskLevel: "red" | "orange" | "green" =
+      counts.e14 > 0 ? "red" : counts.e30 > 0 ? "orange" : "green";
+
+    await db
+      .insert(schema.countryRisk)
+      .values({
+        country,
+        riskLevel,
+        eventsLast14Days: counts.e14,
+        eventsLast30Days: counts.e30,
+        lastUpdated: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: schema.countryRisk.country,
+        set: {
+          riskLevel,
+          eventsLast14Days: counts.e14,
+          eventsLast30Days: counts.e30,
+          lastUpdated: new Date(),
+        },
+      });
+  }
+
+  console.log(
+    `[Pipeline] Updated risk levels for ${Object.keys(countryCounts).length} countries`
+  );
 }

@@ -78,7 +78,7 @@ export const eventsRoutes = new Elysia({ prefix: "/events" })
     }
   )
 
-  // GET /events/:id — single event with sources
+  // GET /events/:id — single event with sources and impacts
   .get("/:id", async ({ params }) => {
     const [event] = await db
       .select()
@@ -90,10 +90,16 @@ export const eventsRoutes = new Elysia({ prefix: "/events" })
       return { error: "Event not found" };
     }
 
-    const eventSources = await db
-      .select()
-      .from(schema.sources)
-      .where(eq(schema.sources.eventId, params.id));
+    const [eventSources, eventImpacts] = await Promise.all([
+      db
+        .select()
+        .from(schema.sources)
+        .where(eq(schema.sources.eventId, params.id)),
+      db
+        .select()
+        .from(schema.impacts)
+        .where(eq(schema.impacts.eventId, params.id)),
+    ]);
 
-    return { ...event, sources: eventSources };
+    return { ...event, sources: eventSources, impacts: eventImpacts };
   });

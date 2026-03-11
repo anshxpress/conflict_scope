@@ -9,8 +9,10 @@ export interface ConflictEvent {
   timestamp: string;
   confidenceScore: ConfidenceLevel;
   sourceUrl: string;
+  articleId?: string | null;
   createdAt: string;
   sources?: EventSource[];
+  impacts?: EventImpact[];
 }
 
 export interface EventSource {
@@ -20,6 +22,33 @@ export interface EventSource {
   articleUrl: string;
   publishedDate: string | null;
 }
+
+export interface EventImpact {
+  id: string;
+  eventId: string;
+  impactType: ImpactType;
+  description: string | null;
+  severity: ImpactSeverity;
+}
+
+export type ImpactType =
+  | "civilian_casualties"
+  | "military_casualties"
+  | "infrastructure_damage"
+  | "power_plant_damage"
+  | "airport_damage"
+  | "oil_refinery_damage"
+  | "residential_destruction"
+  | "refugee_displacement"
+  | "government_building_damage"
+  | "bridge_destroyed"
+  | "communication_disruption"
+  | "water_supply_damage"
+  | "hospital_damage"
+  | "school_damage"
+  | "transportation_disruption";
+
+export type ImpactSeverity = "low" | "medium" | "high" | "critical";
 
 export interface InfrastructureItem {
   id: string;
@@ -128,6 +157,13 @@ export interface CountryRiskDetails {
     latitude: number;
     longitude: number;
   }>;
+  recentImpacts: Array<{
+    id: string;
+    eventId: string;
+    impactType: ImpactType;
+    description: string | null;
+    severity: ImpactSeverity;
+  }>;
 }
 
 export const RISK_COLORS: Record<RiskLevel, string> = {
@@ -140,6 +176,58 @@ export const RISK_LABELS: Record<RiskLevel, string> = {
   red: "High Risk - events in last 14 days",
   orange: "Recent Activity - events 15-30 days ago",
   green: "No Recent Events",
+};
+
+// ── Impact type display ────────────────────────────────
+
+export const IMPACT_TYPE_LABELS: Record<ImpactType, string> = {
+  civilian_casualties: "Civilian Casualties",
+  military_casualties: "Military Casualties",
+  infrastructure_damage: "Infrastructure Damage",
+  power_plant_damage: "Power Plant Damage",
+  airport_damage: "Airport Damage",
+  oil_refinery_damage: "Oil Refinery Damage",
+  residential_destruction: "Residential Destruction",
+  refugee_displacement: "Refugee Displacement",
+  government_building_damage: "Government Building Damage",
+  bridge_destroyed: "Bridge Destroyed",
+  communication_disruption: "Communication Disruption",
+  water_supply_damage: "Water Supply Damage",
+  hospital_damage: "Hospital Damage",
+  school_damage: "School Damage",
+  transportation_disruption: "Transportation Disruption",
+};
+
+export const IMPACT_TYPE_ICONS: Record<ImpactType, string> = {
+  civilian_casualties: "👥",
+  military_casualties: "🎖️",
+  infrastructure_damage: "🏗️",
+  power_plant_damage: "⚡",
+  airport_damage: "✈️",
+  oil_refinery_damage: "🛢️",
+  residential_destruction: "🏚️",
+  refugee_displacement: "🚶",
+  government_building_damage: "🏛️",
+  bridge_destroyed: "🌉",
+  communication_disruption: "📡",
+  water_supply_damage: "💧",
+  hospital_damage: "🏥",
+  school_damage: "🏫",
+  transportation_disruption: "🚂",
+};
+
+export const SEVERITY_COLORS: Record<ImpactSeverity, string> = {
+  low: "#6b7280",
+  medium: "#f59e0b",
+  high: "#ef4444",
+  critical: "#dc2626",
+};
+
+export const SEVERITY_LABELS: Record<ImpactSeverity, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  critical: "Critical",
 };
 
 

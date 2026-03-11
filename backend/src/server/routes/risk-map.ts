@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { db, schema } from "../../../db";
-import { and, eq, gte, desc, count } from "drizzle-orm";
+import { and, eq, gte, desc, count, sql } from "drizzle-orm";
 
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -126,6 +126,33 @@ export const riskMapRoutes = new Elysia({ prefix: "/risk-map" })
       .orderBy(desc(schema.events.timestamp))
       .limit(10);
 
+    // Fetch impacts for recent events
+    const eventIds = recentEvents.map((e) => e.id);
+    let recentImpacts: Array<{
+      id: string;
+      eventId: string;
+      impactType: string;
+      description: string | null;
+      severity: string;
+    }> = [];
+    if (eventIds.length > 0) {
+      recentImpacts = await db
+        .select({
+          id: schema.impacts.id,
+          eventId: schema.impacts.eventId,
+          impactType: schema.impacts.impactType,
+          description: schema.impacts.description,
+          severity: schema.impacts.severity,
+        })
+        .from(schema.impacts)
+        .where(
+          sql`${schema.impacts.eventId} IN (${sql.join(
+            eventIds.map((id) => sql`${id}`),
+            sql`, `
+          )})`
+        );
+    }
+
     const events14 = cnt14?.total ?? 0;
     const events30 = cnt30?.total ?? 0;
     const riskLevel: "red" | "orange" | "green" =
@@ -137,5 +164,6 @@ export const riskMapRoutes = new Elysia({ prefix: "/risk-map" })
       events14Days: events14,
       events30Days: events30,
       recentEvents,
+      recentImpacts,
     };
   });

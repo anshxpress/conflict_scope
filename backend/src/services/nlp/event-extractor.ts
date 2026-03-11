@@ -1,5 +1,11 @@
 import nlp from "compromise";
-import type { EventType } from "../../../db/schema";
+import type { EventType, ImpactType, ImpactSeverity } from "../../../db/schema";
+
+export interface ExtractedImpact {
+  impactType: ImpactType;
+  description: string;
+  severity: ImpactSeverity;
+}
 
 export interface ExtractedEvent {
   title: string;
@@ -9,6 +15,7 @@ export interface ExtractedEvent {
   country: string;
   isConflictRelated: boolean;
   keywords: string[];
+  impacts: ExtractedImpact[];
 }
 
 // ── Helper: word-boundary match ─────────────────────────────────────────────
@@ -459,6 +466,9 @@ export function extractConflictEvent(
     ...[...WEAK_STANDALONE_WORDS].filter((w) => wordMatch(combinedText, w)),
   ];
 
+  // ── Extract impacts ────────────────────────────────────────────────────
+  const impacts = extractImpacts(combinedText);
+
   return {
     title,
     description,
@@ -467,7 +477,199 @@ export function extractConflictEvent(
     country,
     isConflictRelated: true,
     keywords: [...new Set(allMatchedKeywords)],
+    impacts,
   };
+}
+
+// ── Impact extraction ────────────────────────────────────────────────────
+
+const IMPACT_PATTERNS: {
+  type: ImpactType;
+  patterns: string[];
+  defaultSeverity: ImpactSeverity;
+}[] = [
+  {
+    type: "civilian_casualties",
+    patterns: [
+      "civilian casualties", "civilians killed", "civilians dead",
+      "civilian deaths", "women and children killed", "civilian toll",
+      "noncombatant deaths", "civilian fatalities", "people killed",
+      "residents killed", "inhabitants killed", "deaths reported",
+      "killed in the attack", "killed in strike", "killed in bombing",
+    ],
+    defaultSeverity: "high",
+  },
+  {
+    type: "military_casualties",
+    patterns: [
+      "soldiers killed", "troops killed", "military casualties",
+      "combatants killed", "fighters killed", "personnel killed",
+      "officers killed", "servicemen killed", "military deaths",
+      "soldiers dead", "troops dead",
+    ],
+    defaultSeverity: "high",
+  },
+  {
+    type: "infrastructure_damage",
+    patterns: [
+      "infrastructure damage", "infrastructure destroyed",
+      "infrastructure attacked", "critical infrastructure",
+      "energy infrastructure", "railway bombed", "railway attacked",
+      "port attacked", "port damaged", "road destroyed",
+    ],
+    defaultSeverity: "high",
+  },
+  {
+    type: "power_plant_damage",
+    patterns: [
+      "power plant", "power station", "power grid",
+      "electricity cut", "power outage", "blackout",
+      "energy facility", "substation attacked", "transformer destroyed",
+    ],
+    defaultSeverity: "critical",
+  },
+  {
+    type: "airport_damage",
+    patterns: [
+      "airport attacked", "airport bombed", "airport damaged",
+      "airfield struck", "runway destroyed", "air base hit",
+      "airbase attacked",
+    ],
+    defaultSeverity: "critical",
+  },
+  {
+    type: "oil_refinery_damage",
+    patterns: [
+      "refinery attacked", "refinery fire", "refinery exploded",
+      "refinery damaged", "oil depot", "fuel depot",
+      "oil facility", "petroleum facility", "oil storage",
+      "oil terminal", "fuel storage",
+    ],
+    defaultSeverity: "critical",
+  },
+  {
+    type: "residential_destruction",
+    patterns: [
+      "residential buildings destroyed", "residential buildings damaged",
+      "homes destroyed", "houses destroyed", "apartments destroyed",
+      "residential area", "residential district", "neighborhood bombed",
+      "housing damaged", "buildings collapsed", "apartment block",
+      "residential block",
+    ],
+    defaultSeverity: "high",
+  },
+  {
+    type: "refugee_displacement",
+    patterns: [
+      "refugees", "displaced", "displacement", "evacuated",
+      "evacuation", "fled their homes", "forced to flee",
+      "internally displaced", "refugee crisis", "refugee camp",
+      "mass exodus", "humanitarian corridor", "fled the country",
+    ],
+    defaultSeverity: "high",
+  },
+  {
+    type: "government_building_damage",
+    patterns: [
+      "government building", "parliament attacked", "ministry building",
+      "presidential palace", "city hall attacked", "municipal building",
+      "administrative building",
+    ],
+    defaultSeverity: "high",
+  },
+  {
+    type: "bridge_destroyed",
+    patterns: [
+      "bridge destroyed", "bridge bombed", "bridge collapsed",
+      "bridge damaged", "bridge attacked",
+    ],
+    defaultSeverity: "high",
+  },
+  {
+    type: "communication_disruption",
+    patterns: [
+      "communication disrupted", "internet outage", "phone lines cut",
+      "communication blackout", "telecom tower", "cell tower destroyed",
+      "internet cut", "communications down",
+    ],
+    defaultSeverity: "medium",
+  },
+  {
+    type: "water_supply_damage",
+    patterns: [
+      "water supply", "water treatment", "water infrastructure",
+      "water system", "dam attacked", "dam bombed", "dam damaged",
+      "reservoir attacked", "water shortage",
+    ],
+    defaultSeverity: "critical",
+  },
+  {
+    type: "hospital_damage",
+    patterns: [
+      "hospital attacked", "hospital bombed", "hospital damaged",
+      "hospital destroyed", "medical facility", "clinic attacked",
+      "health facility", "medical center",
+    ],
+    defaultSeverity: "critical",
+  },
+  {
+    type: "school_damage",
+    patterns: [
+      "school attacked", "school bombed", "school destroyed",
+      "school damaged", "university attacked", "university bombed",
+      "educational facility",
+    ],
+    defaultSeverity: "high",
+  },
+  {
+    type: "transportation_disruption",
+    patterns: [
+      "transportation disrupted", "rail service", "train service",
+      "highway blocked", "road blocked", "supply routes cut",
+      "logistics disrupted", "supply chain disrupted",
+    ],
+    defaultSeverity: "medium",
+  },
+];
+
+// Regex to extract casualty numbers from text
+const CASUALTY_NUMBER_RE =
+  /(\d{1,6})\s+(?:people |civilians |soldiers |troops |persons |fighters |combatants )?(?:killed|dead|died|casualties|fatalities|wounded|injured)/i;
+
+function extractImpacts(text: string): ExtractedImpact[] {
+  const found: ExtractedImpact[] = [];
+  const seen = new Set<ImpactType>();
+
+  for (const { type, patterns, defaultSeverity } of IMPACT_PATTERNS) {
+    for (const p of patterns) {
+      if (text.includes(p) && !seen.has(type)) {
+        seen.add(type);
+
+        // Try to extract a number of casualties for casualty types
+        let description = p;
+        let severity = defaultSeverity;
+
+        if (
+          type === "civilian_casualties" ||
+          type === "military_casualties"
+        ) {
+          const numMatch = CASUALTY_NUMBER_RE.exec(text);
+          if (numMatch) {
+            const num = parseInt(numMatch[1], 10);
+            description = `${num} ${type === "civilian_casualties" ? "civilian" : "military"} casualties reported`;
+            if (num >= 100) severity = "critical";
+            else if (num >= 10) severity = "high";
+            else severity = "medium";
+          }
+        }
+
+        found.push({ impactType: type, description, severity });
+        break; // One match per impact type is enough
+      }
+    }
+  }
+
+  return found;
 }
 
 function classifyEventType(text: string): EventType {
