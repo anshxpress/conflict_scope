@@ -163,7 +163,8 @@ const EventDetailsPanel: FC<EventDetailsPanelProps> = ({ event, onClose }) => {
                   </span>
                   <div className="flex-1 min-w-0">
                     <span className="text-[11px] text-gray-200 block truncate">
-                      {IMPACT_TYPE_LABELS[imp.impactType as ImpactType] ?? imp.impactType.replace(/_/g, " ")}
+                      {IMPACT_TYPE_LABELS[imp.impactType as ImpactType] ??
+                        imp.impactType.replace(/_/g, " ")}
                     </span>
                     {imp.description && (
                       <span className="text-[10px] text-gray-500 block truncate">
@@ -174,11 +175,14 @@ const EventDetailsPanel: FC<EventDetailsPanelProps> = ({ event, onClose }) => {
                   <span
                     className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
                     style={{
-                      color: SEVERITY_COLORS[imp.severity as ImpactSeverity] ?? "#6b7280",
+                      color:
+                        SEVERITY_COLORS[imp.severity as ImpactSeverity] ??
+                        "#6b7280",
                       backgroundColor: `${SEVERITY_COLORS[imp.severity as ImpactSeverity] ?? "#6b7280"}20`,
                     }}
                   >
-                    {SEVERITY_LABELS[imp.severity as ImpactSeverity] ?? imp.severity}
+                    {SEVERITY_LABELS[imp.severity as ImpactSeverity] ??
+                      imp.severity}
                   </span>
                 </li>
               ))}

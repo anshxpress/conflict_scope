@@ -2,7 +2,15 @@
 
 import type { FC } from "react";
 import { useCountryRisk } from "@/lib/hooks";
-import { RISK_COLORS, RISK_LABELS, EVENT_TYPE_LABELS, IMPACT_TYPE_LABELS, IMPACT_TYPE_ICONS, SEVERITY_COLORS, SEVERITY_LABELS } from "@/types";
+import {
+  RISK_COLORS,
+  RISK_LABELS,
+  EVENT_TYPE_LABELS,
+  IMPACT_TYPE_LABELS,
+  IMPACT_TYPE_ICONS,
+  SEVERITY_COLORS,
+  SEVERITY_LABELS,
+} from "@/types";
 import type { RiskLevel, EventType, ImpactType, ImpactSeverity } from "@/types";
 import { getFlag } from "@/lib/countryFlags";
 import { getCountryProfile } from "@/lib/countryLeaders";
@@ -142,8 +150,18 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
           {data.recentImpacts && data.recentImpacts.length > 0 && (
             <div>
               <h3 className="text-[10px] uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                <svg
+                  className="w-3 h-3 text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
                 </svg>
                 Recent Impacts
               </h3>
@@ -151,39 +169,46 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
                 {(() => {
                   // Deduplicate impacts by type, keep first occurrence
                   const seen = new Set<string>();
-                  return data.recentImpacts.filter((imp) => {
-                    if (seen.has(imp.impactType)) return false;
-                    seen.add(imp.impactType);
-                    return true;
-                  }).map((imp) => (
-                    <li
-                      key={imp.id}
-                      className="flex items-center gap-2.5 bg-cs-dark rounded px-2.5 py-2 border border-cs-border/50"
-                    >
-                      <span className="text-sm shrink-0">
-                        {IMPACT_TYPE_ICONS[imp.impactType as ImpactType] ?? "⚠️"}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs text-gray-200 block truncate">
-                          {IMPACT_TYPE_LABELS[imp.impactType as ImpactType] ?? imp.impactType.replace(/_/g, " ")}
-                        </span>
-                        {imp.description && (
-                          <span className="text-[10px] text-gray-500 block truncate">
-                            {imp.description}
-                          </span>
-                        )}
-                      </div>
-                      <span
-                        className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
-                        style={{
-                          color: SEVERITY_COLORS[imp.severity as ImpactSeverity] ?? "#6b7280",
-                          backgroundColor: `${SEVERITY_COLORS[imp.severity as ImpactSeverity] ?? "#6b7280"}20`,
-                        }}
+                  return data.recentImpacts
+                    .filter((imp) => {
+                      if (seen.has(imp.impactType)) return false;
+                      seen.add(imp.impactType);
+                      return true;
+                    })
+                    .map((imp) => (
+                      <li
+                        key={imp.id}
+                        className="flex items-center gap-2.5 bg-cs-dark rounded px-2.5 py-2 border border-cs-border/50"
                       >
-                        {SEVERITY_LABELS[imp.severity as ImpactSeverity] ?? imp.severity}
-                      </span>
-                    </li>
-                  ));
+                        <span className="text-sm shrink-0">
+                          {IMPACT_TYPE_ICONS[imp.impactType as ImpactType] ??
+                            "⚠️"}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs text-gray-200 block truncate">
+                            {IMPACT_TYPE_LABELS[imp.impactType as ImpactType] ??
+                              imp.impactType.replace(/_/g, " ")}
+                          </span>
+                          {imp.description && (
+                            <span className="text-[10px] text-gray-500 block truncate">
+                              {imp.description}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+                          style={{
+                            color:
+                              SEVERITY_COLORS[imp.severity as ImpactSeverity] ??
+                              "#6b7280",
+                            backgroundColor: `${SEVERITY_COLORS[imp.severity as ImpactSeverity] ?? "#6b7280"}20`,
+                          }}
+                        >
+                          {SEVERITY_LABELS[imp.severity as ImpactSeverity] ??
+                            imp.severity}
+                        </span>
+                      </li>
+                    ));
                 })()}
               </ul>
             </div>
@@ -193,8 +218,18 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
           {profile && profile.leaders.length > 0 && (
             <div>
               <h3 className="text-[10px] uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <svg
+                  className="w-3 h-3 text-blue-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
                 </svg>
                 Key Political Leaders
               </h3>
@@ -225,8 +260,18 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
           {profile && profile.richest.length > 0 && (
             <div>
               <h3 className="text-[10px] uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-3 h-3 text-yellow-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 Wealthiest Individuals
               </h3>
