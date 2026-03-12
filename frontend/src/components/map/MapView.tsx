@@ -24,8 +24,11 @@ interface MapViewProps {
   /** Country name â†’ "red" | "orange" | "green". Drives the choropleth layer. */
   riskMap: RiskMap;
   /** Called when the user clicks a country polygon. Passes the DB country name. */
-  onCountrySelect: (country: string) => void;  /** Resource data for icon markers on map. */
-  resources?: CountryResource[];}
+  onCountrySelect: (
+    country: string,
+  ) => void; /** Resource data for icon markers on map. */
+  resources?: CountryResource[];
+}
 
 // â”€â”€ Country name normalisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
@@ -50,30 +53,30 @@ function resolveDbName(geoAdmin: string): string {
 // Approximate geographic centres; only countries with tracked resources needed.
 const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
   "Saudi Arabia": [24.0, 45.0],
-  "Russia": [61.5, 90.0],
+  Russia: [61.5, 90.0],
   "United States": [38.0, -97.0],
-  "Iraq": [33.0, 44.0],
-  "Iran": [32.0, 53.0],
+  Iraq: [33.0, 44.0],
+  Iran: [32.0, 53.0],
   "United Arab Emirates": [24.0, 54.0],
-  "Kuwait": [29.5, 47.7],
-  "Venezuela": [8.0, -66.0],
-  "Libya": [27.0, 17.0],
-  "Nigeria": [10.0, 8.0],
-  "Canada": [56.0, -96.0],
-  "Kazakhstan": [48.0, 68.0],
-  "China": [35.0, 103.0],
-  "Australia": [-27.0, 133.0],
-  "Ghana": [8.0, -1.0],
+  Kuwait: [29.5, 47.7],
+  Venezuela: [8.0, -66.0],
+  Libya: [27.0, 17.0],
+  Nigeria: [10.0, 8.0],
+  Canada: [56.0, -96.0],
+  Kazakhstan: [48.0, 68.0],
+  China: [35.0, 103.0],
+  Australia: [-27.0, 133.0],
+  Ghana: [8.0, -1.0],
   "South Africa": [-29.0, 25.0],
-  "Peru": [-10.0, -76.0],
-  "Indonesia": [-2.5, 117.0],
-  "Uzbekistan": [41.0, 64.0],
-  "Mexico": [23.6, -102.5],
-  "Sudan": [15.0, 30.0],
-  "Poland": [52.0, 20.0],
-  "Bolivia": [-17.0, -65.0],
-  "Chile": [-35.0, -71.0],
-  "Argentina": [-35.0, -65.0],
+  Peru: [-10.0, -76.0],
+  Indonesia: [-2.5, 117.0],
+  Uzbekistan: [41.0, 64.0],
+  Mexico: [23.6, -102.5],
+  Sudan: [15.0, 30.0],
+  Poland: [52.0, 20.0],
+  Bolivia: [-17.0, -65.0],
+  Chile: [-35.0, -71.0],
+  Argentina: [-35.0, -65.0],
 };
 
 // â”€â”€ Choropleth styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -178,7 +181,9 @@ const MapView: FC<MapViewProps> = ({
   // Keep a ref to events so country hover callbacks (created once on mount)
   // always read the latest events without recreating the GeoJSON layer.
   const eventsRef = useRef<ConflictEvent[]>(events);
-  useEffect(() => { eventsRef.current = events; }, [events]);
+  useEffect(() => {
+    eventsRef.current = events;
+  }, [events]);
 
   // Shared hover popup — reused across all country hovers
   const hoverPopupRef = useRef<L.Popup | null>(null);
@@ -258,26 +263,37 @@ const MapView: FC<MapViewProps> = ({
 
                 // Up to 5 most recent events for this country
                 const countryEvents = eventsRef.current
-                  .filter((ev) => ev.country.toLowerCase() === dbName.toLowerCase())
-                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                  .filter(
+                    (ev) => ev.country.toLowerCase() === dbName.toLowerCase(),
+                  )
+                  .sort(
+                    (a, b) =>
+                      new Date(b.timestamp).getTime() -
+                      new Date(a.timestamp).getTime(),
+                  )
                   .slice(0, 5);
 
                 if (countryEvents.length === 0) return;
 
                 const riskLevel = riskMapRef.current[dbName];
                 const riskColor =
-                  riskLevel === "red" ? "#ef4444"
-                  : riskLevel === "orange" ? "#f97316"
-                  : "#22c55e";
+                  riskLevel === "red"
+                    ? "#ef4444"
+                    : riskLevel === "orange"
+                      ? "#f97316"
+                      : "#22c55e";
 
-                const rows = countryEvents.map((ev) => {
-                  const age = Date.now() - new Date(ev.timestamp).getTime();
-                  const ageLabel =
-                    age < 3600000 ? `${Math.round(age / 60000)}m ago`
-                    : age < 86400000 ? `${Math.round(age / 3600000)}h ago`
-                    : `${Math.round(age / 86400000)}d ago`;
-                  const typeLabel = ev.eventType.replace(/_/g, " ");
-                  return `
+                const rows = countryEvents
+                  .map((ev) => {
+                    const age = Date.now() - new Date(ev.timestamp).getTime();
+                    const ageLabel =
+                      age < 3600000
+                        ? `${Math.round(age / 60000)}m ago`
+                        : age < 86400000
+                          ? `${Math.round(age / 3600000)}h ago`
+                          : `${Math.round(age / 86400000)}d ago`;
+                    const typeLabel = ev.eventType.replace(/_/g, " ");
+                    return `
                     <div style="padding:6px 0;border-bottom:1px solid #1f2937;">
                       <div style="font-size:11px;color:#f3f4f6;line-height:1.35;margin-bottom:3px;">
                         ${escapeHtml(ev.title.length > 72 ? ev.title.slice(0, 72) + "…" : ev.title)}
@@ -287,7 +303,8 @@ const MapView: FC<MapViewProps> = ({
                         <span style="font-size:10px;color:#6b7280;">${ageLabel}</span>
                       </div>
                     </div>`;
-                }).join("");
+                  })
+                  .join("");
 
                 const html = `
                   <div style="width:280px;">
@@ -300,7 +317,8 @@ const MapView: FC<MapViewProps> = ({
                     <div style="padding-top:5px;font-size:10px;color:#4b5563;text-align:center;">Click to open full details</div>
                   </div>`;
 
-                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                if (hoverTimeoutRef.current)
+                  clearTimeout(hoverTimeoutRef.current);
                 if (hoverPopupRef.current) hoverPopupRef.current.remove();
                 const popup = L.popup({
                   closeButton: false,
@@ -568,7 +586,11 @@ const MapView: FC<MapViewProps> = ({
         iconAnchor: [(entry.resources.length * 18) / 2, 9],
       });
 
-      const marker = L.marker(coords, { icon, interactive: false, zIndexOffset: -100 });
+      const marker = L.marker(coords, {
+        icon,
+        interactive: false,
+        zIndexOffset: -100,
+      });
       layer.addLayer(marker);
     }
 

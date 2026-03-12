@@ -23,7 +23,11 @@ const TROY_OZ_TO_GRAMS = 31.1035;
  * Silver: USD/troy oz  → ₹/kg    (MCX standard)
  * Oil:    USD/barrel   → ₹/barrel
  */
-function toIndianPrice(commodity: CommodityName, usdPrice: number, rate: number): string {
+function toIndianPrice(
+  commodity: CommodityName,
+  usdPrice: number,
+  rate: number,
+): string {
   if (commodity === "gold") {
     // price per 10g in INR
     const per10g = (usdPrice / TROY_OZ_TO_GRAMS) * 10 * rate;
@@ -111,7 +115,8 @@ const CommodityPanel: FC = () => {
                   </div>
                   {entry ? (
                     <div className="text-[9px] text-gray-600 mt-0.5">
-                      {toUsdLabel(commodity, entry.price)} · {formatAge(entry.timestamp)}
+                      {toUsdLabel(commodity, entry.price)} ·{" "}
+                      {formatAge(entry.timestamp)}
                     </div>
                   ) : (
                     <div className="text-[10px] text-gray-600 mt-0.5">—</div>

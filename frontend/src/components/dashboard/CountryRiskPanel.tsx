@@ -15,7 +15,13 @@ import {
   COMMODITY_ICONS,
   COMMODITY_LABELS,
 } from "@/types";
-import type { RiskLevel, EventType, ImpactType, ImpactSeverity, CommodityName } from "@/types";
+import type {
+  RiskLevel,
+  EventType,
+  ImpactType,
+  ImpactSeverity,
+  CommodityName,
+} from "@/types";
 import { getFlag } from "@/lib/countryFlags";
 import { getCountryProfile } from "@/lib/countryLeaders";
 
@@ -41,7 +47,7 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
   const { data: resourceData } = useSWR(
     country ? ["country-resources", country] : null,
     () => api.getCountryResources(country),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false },
   );
   const profile = getCountryProfile(country);
 
@@ -132,7 +138,9 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
                     key={r}
                     className="flex items-center gap-1.5 bg-cs-dark rounded px-2.5 py-1.5 border border-cs-border/50"
                   >
-                    <span className="text-sm">{COMMODITY_ICONS[r as CommodityName] ?? "🔹"}</span>
+                    <span className="text-sm">
+                      {COMMODITY_ICONS[r as CommodityName] ?? "🔹"}
+                    </span>
                     <span className="text-xs text-gray-300">
                       {COMMODITY_LABELS[r as CommodityName] ?? r}
                     </span>
