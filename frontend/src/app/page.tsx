@@ -7,6 +7,7 @@ import {
   useInfrastructure,
   useStats,
   useRiskMap,
+  useResources,
 } from "@/lib/hooks";
 import { api } from "@/lib/api";
 import useSWR from "swr";
@@ -18,6 +19,7 @@ import LiveEventFeed from "@/components/dashboard/LiveEventFeed";
 import CountryRiskPanel from "@/components/dashboard/CountryRiskPanel";
 import NotificationBell from "@/components/dashboard/NotificationBell";
 import UpdatesPanel from "@/components/dashboard/UpdatesPanel";
+import CommodityPanel from "@/components/dashboard/CommodityPanel";
 import TimelineSlider from "@/components/timeline/TimelineSlider";
 import SmoothScroll from "@/components/SmoothScroll";
 import type { ConflictEvent, InfrastructureType, RiskMap } from "@/types";
@@ -94,6 +96,7 @@ export default function DashboardPage() {
     { revalidateOnFocus: false },
   );
   const { data: riskMapData } = useRiskMap();
+  const { data: resourcesData } = useResources();
 
   const events = eventsData?.data ?? [];
   const infrastructure = infraData?.data ?? [];
@@ -234,7 +237,8 @@ export default function DashboardPage() {
             leftPanelOpen ? "w-72" : "w-0"
           } overflow-hidden`}
         >
-          <SmoothScroll className="w-72 flex flex-col h-full overflow-y-auto p-3 gap-3">
+          {/* Scrollable area — tabs  + content */}
+          <SmoothScroll className="w-72 flex flex-col flex-1 min-h-0 overflow-y-auto p-3 gap-3">
             {/* Sidebar tabs */}
             <div className="flex bg-cs-dark rounded-lg p-0.5 shrink-0">
               {(["feed", "filters", "stats"] as const).map((tab) => (
@@ -295,6 +299,11 @@ export default function DashboardPage() {
               />
             )}
           </SmoothScroll>
+
+          {/* Commodity panel — always pinned to bottom of sidebar */}
+          <div className="w-72 shrink-0">
+            <CommodityPanel />
+          </div>
         </div>
 
         {/* Left panel toggle button */}
@@ -335,6 +344,7 @@ export default function DashboardPage() {
               onEventSelect={handleEventSelect}
               riskMap={riskMap}
               onCountrySelect={handleCountrySelect}
+              resources={resourcesData ?? []}
             />
 
             {/* Map legend overlay - risk colours + event types */}

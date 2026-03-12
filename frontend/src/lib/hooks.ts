@@ -7,6 +7,8 @@ import type {
   ConflictEvent,
   RiskMap,
   CountryRiskDetails,
+  CommodityPrices,
+  CountryResource,
 } from "@/types";
 
 const REFRESH_INTERVAL = 60_000; // 1 minute auto-refresh
@@ -69,4 +71,20 @@ export function useCountryRisk(country: string | null) {
     () => api.getCountryRiskDetails(country!),
     { revalidateOnFocus: false }
   );
+}
+
+/** Fetches latest commodity prices — refreshes every 30 min. */
+export function useCommodityPrices() {
+  return useSWR<CommodityPrices>("commodity-prices", () => api.getCommodityPrices(), {
+    refreshInterval: 30 * 60 * 1000,
+    revalidateOnFocus: false,
+  });
+}
+
+/** Fetches all country→resource mappings — refreshes every hour. */
+export function useResources() {
+  return useSWR<CountryResource[]>("resources", () => api.getResources(), {
+    refreshInterval: 60 * 60 * 1000,
+    revalidateOnFocus: false,
+  });
 }

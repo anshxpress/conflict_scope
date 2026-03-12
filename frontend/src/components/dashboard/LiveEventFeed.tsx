@@ -28,7 +28,7 @@ const LiveEventFeed: FC<LiveEventFeedProps> = ({
   const recentEvents = events.slice(0, 50);
 
   return (
-    <div className="bg-cs-panel border border-cs-border rounded-lg flex flex-col overflow-hidden h-full">
+    <div className="bg-cs-panel border border-cs-border rounded-lg flex flex-col overflow-hidden flex-1 min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-cs-border shrink-0">
         <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">

@@ -195,6 +195,31 @@ export const countryRisk = pgTable(
   }
 );
 
+// ── Commodities Table ──────────────────────────────────
+
+export const commodities = pgTable("commodities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  commodity: varchar("commodity", { length: 64 }).notNull(), // gold | silver | oil
+  price: doublePrecision("price").notNull(),
+  currency: varchar("currency", { length: 32 }).notNull(), // "USD/oz" | "USD/barrel"
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
+  source: varchar("source", { length: 256 }).notNull(),
+});
+
+// ── Resources Table ────────────────────────────────────
+
+export const resources = pgTable(
+  "resources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    country: varchar("country", { length: 128 }).notNull(),
+    resource: varchar("resource", { length: 64 }).notNull(), // gold | silver | oil
+  },
+  (table) => ({
+    countryIdx: index("resources_country_idx").on(table.country),
+  })
+);
+
 // ── Type exports for application use ───────────────────
 
 export type Article = typeof articles.$inferSelect;
@@ -209,6 +234,10 @@ export type CountryRisk = typeof countryRisk.$inferSelect;
 export type NewCountryRisk = typeof countryRisk.$inferInsert;
 export type Infrastructure = typeof infrastructure.$inferSelect;
 export type NewInfrastructure = typeof infrastructure.$inferInsert;
+export type Commodity = typeof commodities.$inferSelect;
+export type NewCommodity = typeof commodities.$inferInsert;
+export type Resource = typeof resources.$inferSelect;
+export type NewResource = typeof resources.$inferInsert;
 export type EventType = (typeof eventTypeEnum.enumValues)[number];
 export type ConfidenceLevel = (typeof confidenceEnum.enumValues)[number];
 export type InfrastructureType =

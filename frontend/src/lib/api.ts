@@ -6,6 +6,8 @@ import type {
   ConflictEvent,
   RiskMap,
   CountryRiskDetails,
+  CommodityPrices,
+  CountryResource,
 } from "@/types";
 
 const API_URL =
@@ -102,5 +104,26 @@ export const api = {
    */
   getCountryRiskDetails(country: string): Promise<CountryRiskDetails> {
     return fetchJSON(`/risk-map/country/${encodeURIComponent(country)}`);
+  },
+
+  /**
+   * Fetch latest commodity prices (gold, silver, oil).
+   */
+  getCommodityPrices(): Promise<CommodityPrices> {
+    return fetchJSON("/commodities/prices");
+  },
+
+  /**
+   * Fetch all country→resource mappings.
+   */
+  getResources(): Promise<CountryResource[]> {
+    return fetchJSON("/commodities/resources");
+  },
+
+  /**
+   * Fetch resources for a specific country.
+   */
+  getCountryResources(country: string): Promise<{ country: string; resources: string[] }> {
+    return fetchJSON(`/commodities/resources/${encodeURIComponent(country)}`);
   },
 };

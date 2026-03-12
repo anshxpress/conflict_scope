@@ -1,5 +1,6 @@
 import { createApp } from "./server/app";
 import { startScheduler, stopScheduler } from "./services/workers/scheduler";
+import { startCommodityWorker, stopCommodityWorker } from "./services/workers/commodity-worker";
 
 // ── Global error handlers — prevent crashes from unhandled async errors ──────
 
@@ -30,6 +31,7 @@ const server = app.listen(PORT, () => {
   // Set DISABLE_SCHEDULER=true when GitHub Actions handles the worker cron.
   if (process.env.DISABLE_SCHEDULER !== "true") {
     startScheduler();
+    startCommodityWorker();
   } else {
     console.log("[Server] Scheduler disabled — workers handled by GitHub Actions.");
   }
@@ -40,6 +42,7 @@ const server = app.listen(PORT, () => {
 function shutdown() {
   console.log("\n[Server] Shutting down gracefully…");
   stopScheduler();
+  stopCommodityWorker();
   server.stop();
   process.exit(0);
 }

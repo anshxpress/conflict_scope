@@ -8,8 +8,9 @@ import type {
   InfrastructureItem,
   EventType,
   RiskMap,
+  CountryResource,
 } from "@/types";
-import { EVENT_TYPE_COLORS } from "@/types";
+import { EVENT_TYPE_COLORS, COMMODITY_ICONS } from "@/types";
 
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -23,8 +24,8 @@ interface MapViewProps {
   /** Country name â†’ "red" | "orange" | "green". Drives the choropleth layer. */
   riskMap: RiskMap;
   /** Called when the user clicks a country polygon. Passes the DB country name. */
-  onCountrySelect: (country: string) => void;
-}
+  onCountrySelect: (country: string) => void;  /** Resource data for icon markers on map. */
+  resources?: CountryResource[];}
 
 // â”€â”€ Country name normalisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
@@ -44,6 +45,36 @@ const GEO_TO_DB: Record<string, string> = {
 function resolveDbName(geoAdmin: string): string {
   return GEO_TO_DB[geoAdmin] ?? geoAdmin;
 }
+
+// ── Country centroids (lat/lng) for resource icon placement ──────────────────
+// Approximate geographic centres; only countries with tracked resources needed.
+const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
+  "Saudi Arabia": [24.0, 45.0],
+  "Russia": [61.5, 90.0],
+  "United States": [38.0, -97.0],
+  "Iraq": [33.0, 44.0],
+  "Iran": [32.0, 53.0],
+  "United Arab Emirates": [24.0, 54.0],
+  "Kuwait": [29.5, 47.7],
+  "Venezuela": [8.0, -66.0],
+  "Libya": [27.0, 17.0],
+  "Nigeria": [10.0, 8.0],
+  "Canada": [56.0, -96.0],
+  "Kazakhstan": [48.0, 68.0],
+  "China": [35.0, 103.0],
+  "Australia": [-27.0, 133.0],
+  "Ghana": [8.0, -1.0],
+  "South Africa": [-29.0, 25.0],
+  "Peru": [-10.0, -76.0],
+  "Indonesia": [-2.5, 117.0],
+  "Uzbekistan": [41.0, 64.0],
+  "Mexico": [23.6, -102.5],
+  "Sudan": [15.0, 30.0],
+  "Poland": [52.0, 20.0],
+  "Bolivia": [-17.0, -65.0],
+  "Chile": [-35.0, -71.0],
+  "Argentina": [-35.0, -65.0],
+};
 
 // â”€â”€ Choropleth styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -130,6 +161,7 @@ const MapView: FC<MapViewProps> = ({
   onEventSelect,
   riskMap,
   onCountrySelect,
+  resources = [],
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -137,6 +169,7 @@ const MapView: FC<MapViewProps> = ({
   const eventLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   const infraLayerRef = useRef<L.LayerGroup | null>(null);
   const heatLayerRef = useRef<L.Layer | null>(null);
+  const resourceLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Keep a ref to the latest riskMap so the GeoJSON style function always
   // reads the current value without needing to recreate the layer.
@@ -493,7 +526,57 @@ const MapView: FC<MapViewProps> = ({
     heatLayerRef.current = heat;
   }, [events, showHeatmap]);
 
-  // â”€â”€ Fly to selected event â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Resource icon markers ─────────────────────────────────────────────────
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (resourceLayerRef.current) {
+      map.removeLayer(resourceLayerRef.current);
+      resourceLayerRef.current = null;
+    }
+
+    if (resources.length === 0) return;
+
+    const layer = L.layerGroup();
+
+    for (const entry of resources) {
+      if (!entry.resources || entry.resources.length === 0) continue;
+
+      // Use the GeoJSON centroid lookup — approximate country centres
+      const coords = COUNTRY_CENTROIDS[entry.country];
+      if (!coords) continue;
+
+      // Build a small clustered icon showing all resource emojis
+      const icons = entry.resources
+        .map((r) => COMMODITY_ICONS[r as keyof typeof COMMODITY_ICONS] ?? "")
+        .filter(Boolean)
+        .join(" ");
+
+      const icon = L.divIcon({
+        className: "resource-icon-marker",
+        html: `<div style="
+          font-size:14px;
+          line-height:1;
+          text-shadow:0 1px 3px rgba(0,0,0,0.9);
+          white-space:nowrap;
+          pointer-events:none;
+          filter:drop-shadow(0 0 2px rgba(0,0,0,0.8));
+        ">${icons}</div>`,
+        iconSize: [entry.resources.length * 18, 18],
+        iconAnchor: [(entry.resources.length * 18) / 2, 9],
+      });
+
+      const marker = L.marker(coords, { icon, interactive: false, zIndexOffset: -100 });
+      layer.addLayer(marker);
+    }
+
+    layer.addTo(map);
+    resourceLayerRef.current = layer;
+  }, [resources]);
+
+  // ── Fly to selected event ─────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (selectedEvent && mapRef.current) {

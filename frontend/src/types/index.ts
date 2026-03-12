@@ -178,6 +178,38 @@ export const RISK_LABELS: Record<RiskLevel, string> = {
   green: "No Recent Events",
 };
 
+// ── Commodity types ────────────────────────────────────
+
+export type CommodityName = "gold" | "silver" | "oil";
+
+export interface CommodityPrice {
+  price: number;
+  currency: string;
+  timestamp: string;
+  source: string;
+}
+
+export type CommodityPrices = Record<CommodityName, CommodityPrice | null> & {
+  usdToInr?: number;
+};
+
+export interface CountryResource {
+  country: string;
+  resources: CommodityName[];
+}
+
+export const COMMODITY_ICONS: Record<CommodityName, string> = {
+  gold: "🟡",
+  silver: "⚪",
+  oil: "🛢",
+};
+
+export const COMMODITY_LABELS: Record<CommodityName, string> = {
+  gold: "Gold",
+  silver: "Silver",
+  oil: "Crude Oil",
+};
+
 // ── Impact type display ────────────────────────────────
 
 export const IMPACT_TYPE_LABELS: Record<ImpactType, string> = {

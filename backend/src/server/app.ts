@@ -4,6 +4,7 @@ import { eventsRoutes } from "./routes/events";
 import { infrastructureRoutes } from "./routes/infrastructure";
 import { statsRoutes } from "./routes/stats";
 import { riskMapRoutes } from "./routes/risk-map";
+import { commodityRoutes } from "./routes/commodities";
 
 export function createApp() {
   const app = new Elysia()
@@ -24,6 +25,7 @@ export function createApp() {
         .use(infrastructureRoutes)
         .use(statsRoutes)
         .use(riskMapRoutes)
+        .use(commodityRoutes)
     );
 
   return app;

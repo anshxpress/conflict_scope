@@ -2,6 +2,8 @@
 
 import type { FC } from "react";
 import { useCountryRisk } from "@/lib/hooks";
+import useSWR from "swr";
+import { api } from "@/lib/api";
 import {
   RISK_COLORS,
   RISK_LABELS,
@@ -10,8 +12,10 @@ import {
   IMPACT_TYPE_ICONS,
   SEVERITY_COLORS,
   SEVERITY_LABELS,
+  COMMODITY_ICONS,
+  COMMODITY_LABELS,
 } from "@/types";
-import type { RiskLevel, EventType, ImpactType, ImpactSeverity } from "@/types";
+import type { RiskLevel, EventType, ImpactType, ImpactSeverity, CommodityName } from "@/types";
 import { getFlag } from "@/lib/countryFlags";
 import { getCountryProfile } from "@/lib/countryLeaders";
 
@@ -34,6 +38,11 @@ const RISK_TEXT: Record<RiskLevel, string> = {
 
 const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
   const { data, isLoading } = useCountryRisk(country);
+  const { data: resourceData } = useSWR(
+    country ? ["country-resources", country] : null,
+    () => api.getCountryResources(country),
+    { revalidateOnFocus: false }
+  );
   const profile = getCountryProfile(country);
 
   const riskLevel: RiskLevel = data?.riskLevel ?? "green";
@@ -109,6 +118,29 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
               highlight={data.events30Days > 0 ? "orange" : undefined}
             />
           </div>
+
+          {/* Strategic Resources */}
+          {resourceData && resourceData.resources.length > 0 && (
+            <div>
+              <h3 className="text-[10px] uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
+                <span>⛏</span>
+                Strategic Resources
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {resourceData.resources.map((r) => (
+                  <div
+                    key={r}
+                    className="flex items-center gap-1.5 bg-cs-dark rounded px-2.5 py-1.5 border border-cs-border/50"
+                  >
+                    <span className="text-sm">{COMMODITY_ICONS[r as CommodityName] ?? "🔹"}</span>
+                    <span className="text-xs text-gray-300">
+                      {COMMODITY_LABELS[r as CommodityName] ?? r}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Recent events */}
           {data.recentEvents.length > 0 && (
