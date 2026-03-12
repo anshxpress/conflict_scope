@@ -1,5 +1,5 @@
 import { db, schema } from "../../../db";
-import { eq, gte, sql, count } from "drizzle-orm";
+import { eq, gte, sql, count, and, ilike } from "drizzle-orm";
 import { fetchAllFeeds, fetchGdeltArticles } from "../rss/feed-fetcher";
 import { extractConflictEvent } from "../nlp/event-extractor";
 import { geocodeFirstMatch } from "../geocoding/nominatim";
@@ -84,6 +84,31 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
             `[Pipeline] Could not geocode locations for: ${article.title}`
           );
           continue;
+        }
+
+        // Deduplicate at event level: same/very-similar title within 24 hours
+        // This catches the same story published by multiple RSS sources
+        const titleWords = extracted.title
+          .split(/\s+/)
+          .filter((w) => w.length > 4)
+          .slice(0, 6)
+          .join(" ");
+        if (titleWords.length > 0) {
+          const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const [dupEvent] = await db
+            .select({ id: schema.events.id })
+            .from(schema.events)
+            .where(
+              and(
+                ilike(schema.events.title, `%${titleWords}%`),
+                gte(schema.events.timestamp, cutoff24h)
+              )
+            )
+            .limit(1);
+          if (dupEvent) {
+            console.debug(`[Pipeline] Skipped duplicate event: ${extracted.title}`);
+            continue;
+          }
         }
 
         // Calculate confidence
