@@ -273,6 +273,7 @@ const MapView: FC<MapViewProps> = ({
                   closeButton: false,
                   autoClose: false,
                   closeOnClick: false,
+                  autoPan: false,
                   offset: [0, -4],
                 })
                   .setLatLng(e.latlng)
