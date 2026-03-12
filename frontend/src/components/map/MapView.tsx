@@ -149,6 +149,8 @@ const MapView: FC<MapViewProps> = ({
 
   // Shared hover popup — reused across all country hovers
   const hoverPopupRef = useRef<L.Popup | null>(null);
+  // Timeout ref so mouseout doesn't instantly kill the popup when moving to it
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // â”€â”€ Map initialisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -261,12 +263,13 @@ const MapView: FC<MapViewProps> = ({
                       <span style="font-size:12px;font-weight:700;color:#f9fafb;">${escapeHtml(dbName)}</span>
                       <span style="font-size:10px;color:#6b7280;margin-left:auto;">${countryEvents.length} event${countryEvents.length > 1 ? "s" : ""}</span>
                     </div>
-                    ${rows}
+                    <div style="max-height:220px;overflow-y:auto;">${rows}</div>
                     <div style="padding-top:5px;font-size:10px;color:#4b5563;text-align:center;">Click to open full details</div>
                   </div>`;
 
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
                 if (hoverPopupRef.current) hoverPopupRef.current.remove();
-                hoverPopupRef.current = L.popup({
+                const popup = L.popup({
                   closeButton: false,
                   autoClose: false,
                   closeOnClick: false,
@@ -275,13 +278,44 @@ const MapView: FC<MapViewProps> = ({
                   .setLatLng(e.latlng)
                   .setContent(html)
                   .openOn(map);
+                hoverPopupRef.current = popup;
+
+                // After Leaflet renders the popup DOM, disable scroll/wheel
+                // propagation so scrolling the list doesn't zoom the map,
+                // and keep popup alive while mouse is over it.
+                requestAnimationFrame(() => {
+                  const el = popup.getElement();
+                  if (el) {
+                    L.DomEvent.disableScrollPropagation(el);
+                    L.DomEvent.disableClickPropagation(el);
+                    // Cancel close timer when mouse enters popup
+                    L.DomEvent.on(el, "mouseenter", () => {
+                      if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                        hoverTimeoutRef.current = null;
+                      }
+                    });
+                    // Restart close timer when mouse leaves popup
+                    L.DomEvent.on(el, "mouseleave", () => {
+                      hoverTimeoutRef.current = setTimeout(() => {
+                        if (hoverPopupRef.current) {
+                          hoverPopupRef.current.remove();
+                          hoverPopupRef.current = null;
+                        }
+                      }, 150);
+                    });
+                  }
+                });
               },
               mouseout: (e) => {
                 layer.resetStyle(e.target as L.Path);
-                if (hoverPopupRef.current) {
-                  hoverPopupRef.current.remove();
-                  hoverPopupRef.current = null;
-                }
+                // Small delay so popup stays if mouse moves onto the popup itself
+                hoverTimeoutRef.current = setTimeout(() => {
+                  if (hoverPopupRef.current) {
+                    hoverPopupRef.current.remove();
+                    hoverPopupRef.current = null;
+                  }
+                }, 300);
               },
             });
           },
