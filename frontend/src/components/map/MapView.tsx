@@ -142,6 +142,14 @@ const MapView: FC<MapViewProps> = ({
   // reads the current value without needing to recreate the layer.
   const riskMapRef = useRef<RiskMap>(riskMap);
 
+  // Keep a ref to events so country hover callbacks (created once on mount)
+  // always read the latest events without recreating the GeoJSON layer.
+  const eventsRef = useRef<ConflictEvent[]>(events);
+  useEffect(() => { eventsRef.current = events; }, [events]);
+
+  // Shared hover popup — reused across all country hovers
+  const hoverPopupRef = useRef<L.Popup | null>(null);
+
   // â”€â”€ Map initialisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
@@ -207,9 +215,73 @@ const MapView: FC<MapViewProps> = ({
               mouseover: (e) => {
                 const l = e.target as L.Path;
                 l.setStyle({ weight: 1.5, color: "#9ca3af", fillOpacity: 0.6 });
+
+                const admin: string = feature?.properties?.ADMIN ?? "";
+                const dbName = resolveDbName(admin);
+                const map = mapRef.current;
+                if (!map) return;
+
+                // Up to 5 most recent events for this country
+                const countryEvents = eventsRef.current
+                  .filter((ev) => ev.country.toLowerCase() === dbName.toLowerCase())
+                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                  .slice(0, 5);
+
+                if (countryEvents.length === 0) return;
+
+                const riskLevel = riskMapRef.current[dbName];
+                const riskColor =
+                  riskLevel === "red" ? "#ef4444"
+                  : riskLevel === "orange" ? "#f97316"
+                  : "#22c55e";
+
+                const rows = countryEvents.map((ev) => {
+                  const age = Date.now() - new Date(ev.timestamp).getTime();
+                  const ageLabel =
+                    age < 3600000 ? `${Math.round(age / 60000)}m ago`
+                    : age < 86400000 ? `${Math.round(age / 3600000)}h ago`
+                    : `${Math.round(age / 86400000)}d ago`;
+                  const typeLabel = ev.eventType.replace(/_/g, " ");
+                  return `
+                    <div style="padding:6px 0;border-bottom:1px solid #1f2937;">
+                      <div style="font-size:11px;color:#f3f4f6;line-height:1.35;margin-bottom:3px;">
+                        ${escapeHtml(ev.title.length > 72 ? ev.title.slice(0, 72) + "…" : ev.title)}
+                      </div>
+                      <div style="display:flex;justify-content:space-between;">
+                        <span style="font-size:10px;color:#6b7280;text-transform:capitalize;">${typeLabel}</span>
+                        <span style="font-size:10px;color:#6b7280;">${ageLabel}</span>
+                      </div>
+                    </div>`;
+                }).join("");
+
+                const html = `
+                  <div style="width:280px;">
+                    <div style="display:flex;align-items:center;gap:6px;padding-bottom:6px;border-bottom:1px solid #374151;margin-bottom:4px;">
+                      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${riskColor};flex-shrink:0;"></span>
+                      <span style="font-size:12px;font-weight:700;color:#f9fafb;">${escapeHtml(dbName)}</span>
+                      <span style="font-size:10px;color:#6b7280;margin-left:auto;">${countryEvents.length} event${countryEvents.length > 1 ? "s" : ""}</span>
+                    </div>
+                    ${rows}
+                    <div style="padding-top:5px;font-size:10px;color:#4b5563;text-align:center;">Click to open full details</div>
+                  </div>`;
+
+                if (hoverPopupRef.current) hoverPopupRef.current.remove();
+                hoverPopupRef.current = L.popup({
+                  closeButton: false,
+                  autoClose: false,
+                  closeOnClick: false,
+                  offset: [0, -4],
+                })
+                  .setLatLng(e.latlng)
+                  .setContent(html)
+                  .openOn(map);
               },
               mouseout: (e) => {
                 layer.resetStyle(e.target as L.Path);
+                if (hoverPopupRef.current) {
+                  hoverPopupRef.current.remove();
+                  hoverPopupRef.current = null;
+                }
               },
             });
           },
