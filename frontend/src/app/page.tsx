@@ -42,7 +42,12 @@ export default function DashboardPage() {
   const [selectedConfidence, setSelectedConfidence] = useState("");
 
   // â”€â”€ Timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const [timeRange, setTimeRange] = useState<[Date, Date] | null>(null);
+  const [timeRange, setTimeRange] = useState<[Date, Date]>(() => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    return [start, now];
+  });
 
   // â”€â”€ Map layer toggles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [showEvents, setShowEvents] = useState(true);
@@ -72,8 +77,8 @@ export default function DashboardPage() {
     if (selectedCountry) p.country = selectedCountry;
     if (selectedType) p.type = selectedType;
     if (selectedConfidence) p.confidence = selectedConfidence;
-    if (timeRange?.[0]) p.from = timeRange[0].toISOString();
-    if (timeRange?.[1]) p.to = timeRange[1].toISOString();
+    p.from = timeRange[0].toISOString();
+    p.to = timeRange[1].toISOString();
     p.limit = "500";
     return p;
   }, [selectedCountry, selectedType, selectedConfidence, timeRange]);
@@ -131,7 +136,10 @@ export default function DashboardPage() {
     setSelectedCountry("");
     setSelectedType("");
     setSelectedConfidence("");
-    setTimeRange(null);
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    setTimeRange([start, now]);
   }, []);
 
   const handleToggleInfraType = useCallback((type: InfrastructureType) => {
@@ -394,12 +402,7 @@ export default function DashboardPage() {
           <div className="shrink-0 px-4 py-3 border-t border-cs-border bg-cs-panel/80 z-30">
             <TimelineSlider
               events={timelineEvents}
-              value={
-                timeRange ?? [
-                  new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-                  new Date(),
-                ]
-              }
+              value={timeRange}
               onChange={setTimeRange}
             />
           </div>

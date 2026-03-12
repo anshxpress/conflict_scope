@@ -66,12 +66,23 @@ function countryStyle(riskLevel: string | undefined): L.PathOptions {
 
 // â”€â”€ Marker helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function createEventIcon(eventType: EventType): L.DivIcon {
+function createEventIcon(eventType: EventType, isRecent = false): L.DivIcon {
   const color = EVENT_TYPE_COLORS[eventType] || "#ef4444";
+  // Recent events (< 3h) get an extra animated blinking ring
+  const blinkRing = isRecent
+    ? `<div style="
+        position:absolute;inset:-6px;
+        border-radius:50%;
+        border:2px solid ${color};
+        animation:recent-ping 1.2s cubic-bezier(0,0,0.2,1) infinite;
+        opacity:0;
+      "></div>`
+    : "";
   return L.divIcon({
     className: "custom-event-marker",
     html: `
       <div style="position:relative;width:24px;height:24px;">
+        ${blinkRing}
         <div style="
           position:absolute;inset:0;
           border-radius:50%;
@@ -265,9 +276,11 @@ const MapView: FC<MapViewProps> = ({
       },
     });
 
+    const threeHoursAgo = Date.now() - 3 * 60 * 60 * 1000;
     for (const event of events) {
+      const isRecent = new Date(event.timestamp).getTime() > threeHoursAgo;
       const marker = L.marker([event.latitude, event.longitude], {
-        icon: createEventIcon(event.eventType),
+        icon: createEventIcon(event.eventType, isRecent),
       });
 
       marker.bindPopup(`
