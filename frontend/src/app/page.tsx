@@ -23,7 +23,12 @@ import CommodityPanel from "@/components/dashboard/CommodityPanel";
 import CommodityInsightsPanel from "@/components/dashboard/CommodityInsightsPanel";
 import TimelineSlider from "@/components/timeline/TimelineSlider";
 import SmoothScroll from "@/components/SmoothScroll";
-import type { ConflictEvent, InfrastructureType, RiskMap, CommodityName } from "@/types";
+import type {
+  ConflictEvent,
+  InfrastructureType,
+  RiskMap,
+  CommodityName,
+} from "@/types";
 
 // Dynamically import MapView to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map/MapView"), {
@@ -74,7 +79,8 @@ export default function DashboardPage() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   // Selected commodity opens right panel with full analysis
-  const [selectedCommodity, setSelectedCommodity] = useState<CommodityName | null>(null);
+  const [selectedCommodity, setSelectedCommodity] =
+    useState<CommodityName | null>(null);
 
   // â”€â”€ Data fetching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const filterParams = useMemo(() => {

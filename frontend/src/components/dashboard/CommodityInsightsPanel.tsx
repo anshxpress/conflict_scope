@@ -120,7 +120,13 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
         style={{ display: "block" }}
       >
         <defs>
-          <linearGradient id={`sg-${color.replace("#", "")}`} x1="0" y1="0" x2="1" y2="0">
+          <linearGradient
+            id={`sg-${color.replace("#", "")}`}
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="0"
+          >
             <stop offset="0%" stopColor={color} stopOpacity="0.3" />
             <stop offset="100%" stopColor={color} stopOpacity="1" />
           </linearGradient>
@@ -147,7 +153,9 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
         >
           {pct >= 0 ? "▲" : "▼"} {Math.abs(pct).toFixed(2)}%
         </div>
-        <div className="text-[9px] text-gray-600 mt-0.5">{points.length} pts</div>
+        <div className="text-[9px] text-gray-600 mt-0.5">
+          {points.length} pts
+        </div>
       </div>
     </div>
   );
@@ -189,8 +197,10 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
   const color = COMMODITY_COLORS[commodity];
 
   const { data: priceData } = useCommodityPrices();
-  const { data: historyData, isLoading: historyLoading } =
-    useCommodityHistory(commodity, 168);
+  const { data: historyData, isLoading: historyLoading } = useCommodityHistory(
+    commodity,
+    168,
+  );
   // Always fetch the full 7-day dataset; filtering is done client-side below.
   const { data: insightsData, isLoading: insightsLoading } =
     useCommodityInsights(commodity, 168);
@@ -216,7 +226,9 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
   // Per-window summary always derived from the FULL dataset (no windowFilter applied)
   const windowSummary = useMemo(() => {
     return ([1, 6, 24] as const).map((w) => {
-      const subset = (insightsData?.insights ?? []).filter((i) => i.windowHours === w);
+      const subset = (insightsData?.insights ?? []).filter(
+        (i) => i.windowHours === w,
+      );
       if (!subset.length) return { w, avg: null, pct: null };
       const avgImpact =
         subset.reduce((s, i) => s + (i.impactScore ?? 0), 0) / subset.length;
@@ -235,7 +247,9 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
       >
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xl leading-none">{COMMODITY_ICONS[commodity]}</span>
+            <span className="text-xl leading-none">
+              {COMMODITY_ICONS[commodity]}
+            </span>
             <h2 className="text-sm font-bold" style={{ color }}>
               {COMMODITY_LABELS[commodity]}
             </h2>
@@ -296,7 +310,8 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
               <Sparkline points={sparklinePoints} color={color} />
             ) : (
               <div className="h-9 flex items-center text-[10px] text-gray-600">
-                No history data yet — prices will appear after the next worker run.
+                No history data yet — prices will appear after the next worker
+                run.
               </div>
             )}
           </div>
@@ -373,7 +388,9 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
                     key={w}
                     className="bg-cs-dark rounded p-2 border border-cs-border/50 text-center"
                   >
-                    <div className="text-[10px] text-gray-600 font-mono">{w}h</div>
+                    <div className="text-[10px] text-gray-600 font-mono">
+                      {w}h
+                    </div>
                     <div className="text-[9px] text-gray-600 mt-0.5">–</div>
                   </div>
                 ) : (
@@ -381,7 +398,9 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
                     key={w}
                     className="bg-cs-dark rounded p-2.5 border border-cs-border/50 text-center"
                   >
-                    <div className="text-[10px] text-gray-500 font-mono">{w}h</div>
+                    <div className="text-[10px] text-gray-500 font-mono">
+                      {w}h
+                    </div>
                     <div
                       className={`text-xs font-mono font-bold mt-0.5 ${(pct ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}
                     >
