@@ -24,8 +24,7 @@ export const statsRoutes = new Elysia({ prefix: "/stats" })
       })
       .from(schema.events)
       .groupBy(schema.events.country)
-      .orderBy(desc(count()))
-      .limit(20);
+      .orderBy(desc(count()));
 
     const byConfidence = await db
       .select({

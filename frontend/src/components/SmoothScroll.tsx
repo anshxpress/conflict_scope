@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
-import Lenis from "lenis";
+import type { ReactNode } from "react";
 
 interface SmoothScrollProps {
   children: ReactNode;
@@ -17,35 +16,15 @@ export default function SmoothScroll({
   children,
   className,
 }: SmoothScrollProps) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-
-    const lenis = new Lenis({
-      wrapper: el,
-      content: el.firstElementChild as HTMLElement,
-      lerp: 0.12,
-      smoothWheel: true,
-      touchMultiplier: 1.5,
-    });
-
-    let raf: number;
-    function tick(time: number) {
-      lenis.raf(time);
-      raf = requestAnimationFrame(tick);
-    }
-    raf = requestAnimationFrame(tick);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      lenis.destroy();
-    };
-  }, []);
-
   return (
-    <div ref={wrapperRef} className={className}>
+    <div
+      className={className}
+      style={{
+        WebkitOverflowScrolling: "touch",
+        overscrollBehavior: "contain",
+        touchAction: "pan-y",
+      }}
+    >
       <div>{children}</div>
     </div>
   );
