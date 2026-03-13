@@ -367,12 +367,12 @@ Detailed risk breakdown for a single country including recent events list.
 3. Set `NEXT_PUBLIC_API_URL` to your backend URL
 4. Deploy
 
-### Backend - Railway
+### Backend - Render (Free)
 
-1. Create a new project at [railway.com](https://railway.com)
-2. Connect your repo and select the `backend/` directory as root
-3. Set environment variables: `DATABASE_URL`, `FRONTEND_URL`, `PORT=3001`
-4. Railway auto-detects the Dockerfile - deploy
+1. Create a new Web Service at [render.com](https://render.com)
+2. Connect your repo and set Root Directory to `backend`
+3. Render will use `backend/render.yaml` and `Dockerfile`
+4. Set environment variables: `DATABASE_URL`, `FRONTEND_URL`, `PORT=3001`
 
 ### Database - Neon (Free)
 
@@ -413,7 +413,7 @@ conflictscope/
 │   │   └── seed-infrastructure.ts
 │   ├── Dockerfile
 │   ├── render.yaml              # Render deployment (legacy)
-│   └── railway.toml             # Railway deployment config
+│   └── package.json
 │
 ├── frontend/                        # Next.js 14 (App Router)
 │   ├── src/
@@ -468,7 +468,7 @@ conflictscope/
 | **Styling**       | TailwindCSS                | Utility-first dark theme                   |
 | **Smooth Scroll** | Lenis                      | Sub-pixel smooth scrolling on panels       |
 | **Data Fetching** | SWR                        | Stale-while-revalidate with auto-refresh   |
-| **Deployment**    | Vercel + Railway + Neon    | Free / hobby tier                          |
+| **Deployment**    | Vercel + Render + Neon     | Free / hobby tier                          |
 
 ---
 
