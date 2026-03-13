@@ -481,7 +481,7 @@ export function extractConflictEvent(
     titlePolicyMatches.length >= 1;
 
   if (!hasEnoughKeywords) {
-    // Last chance: does the text have a weak word AND a geopolitical anchor?
+    // Last chance: allow weak conflict wording only when geopolitical context is strong.
     // Use word-boundary matching for weak words to prevent substring matches
     // like "heartwarming" → "war" or "otherapist" → "the rapist".
     const hasWeakWord = [...WEAK_STANDALONE_WORDS].some((w) =>
@@ -490,7 +490,11 @@ export function extractConflictEvent(
     const hasAnchor = GEOPOLITICAL_ANCHORS.some((a) =>
       combinedText.includes(a)
     );
-    if (!(hasWeakWord && hasAnchor && (specificMatches.length >= 1 || politicalEconomicMatches.length >= 1))) {
+    const hasConflictRegionContext = [...CONFLICT_REGIONS].some((r) =>
+      combinedText.includes(r)
+    );
+
+    if (!(hasWeakWord && (hasAnchor || hasConflictRegionContext || hasHardConflict))) {
       console.debug(
         `[NLP] Rejected (insufficient keywords war=${specificMatches.length}, geoEco=${politicalEconomicMatches.length}): ${title}`
       );

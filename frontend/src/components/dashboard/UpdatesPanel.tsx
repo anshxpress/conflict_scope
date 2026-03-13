@@ -10,20 +10,24 @@ interface Update {
 
 const UPDATES: Update[] = [
   {
-    status: "in-progress",
+    status: "live",
     label: "Real-time Gold, Silver & Crude Oil war-impact tracking",
   },
   {
-    status: "in-progress",
+    status: "live",
     label: "Conflict-driven price spike alerts with OSINT correlation",
   },
   {
-    status: "in-progress",
+    status: "live",
     label: "Live commodity ticker linked to active conflict zones",
   },
   {
-    status: "in-progress",
+    status: "live",
     label: "Custom alert thresholds for oil, gold & grain spikes",
+  },
+  {
+    status: "in-progress",
+    label: "Real-time news and impact on india due to war",
   },
 ];
 
