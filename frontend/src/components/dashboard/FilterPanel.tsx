@@ -51,10 +51,7 @@ const FilterPanel: FC<FilterPanelProps> = ({
 
     return countries.filter((country) => {
       const formatted = formatCountry(country).toLowerCase();
-      return (
-        country.toLowerCase().includes(query) ||
-        formatted.includes(query)
-      );
+      return country.toLowerCase().includes(query) || formatted.includes(query);
     });
   }, [countries, countryQuery]);
 
@@ -62,9 +59,7 @@ const FilterPanel: FC<FilterPanelProps> = ({
     const query = countryQuery.trim().toLowerCase();
     if (!query) return "";
 
-    return (
-      countries.find((country) => country.toLowerCase() === query) ?? ""
-    );
+    return countries.find((country) => country.toLowerCase() === query) ?? "";
   }, [countries, countryQuery]);
 
   const handleCountrySelect = (country: string) => {
