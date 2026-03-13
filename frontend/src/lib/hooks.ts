@@ -9,6 +9,11 @@ import type {
   CountryRiskDetails,
   CommodityPrices,
   CountryResource,
+  CommodityName,
+  CommodityHistoryResponse,
+  CommodityInsightsResponse,
+  CommodityAlert,
+  CommodityOverview,
 } from "@/types";
 
 const REFRESH_INTERVAL = 60_000; // 1 minute auto-refresh
@@ -87,4 +92,61 @@ export function useResources() {
     refreshInterval: 60 * 60 * 1000,
     revalidateOnFocus: false,
   });
+}
+
+/** Commodity history for timeline overlay. */
+export function useCommodityHistory(
+  commodity: CommodityName | null,
+  hours = 24 * 7
+) {
+  return useSWR<CommodityHistoryResponse>(
+    commodity ? ["commodity-history", commodity, hours] : null,
+    () => api.getCommodityHistory(commodity!, { hours }),
+    {
+      refreshInterval: 15 * 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
+}
+
+/** Event-linked commodity impact insights. */
+export function useCommodityInsights(
+  commodity: CommodityName | null,
+  hours = 24 * 7
+) {
+  return useSWR<CommodityInsightsResponse>(
+    commodity ? ["commodity-insights", commodity, hours] : null,
+    () => api.getCommodityInsights({ commodity: commodity!, hours }),
+    {
+      refreshInterval: 5 * 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
+}
+
+/** Generated commodity alerts. */
+export function useCommodityAlerts(
+  commodity?: CommodityName,
+  limit = 50
+) {
+  return useSWR<CommodityAlert[]>(
+    ["commodity-alerts", commodity ?? "all", limit],
+    () => api.getCommodityAlerts({ commodity, limit }),
+    {
+      refreshInterval: 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
+}
+
+/** Aggregated widget payload for geopolitical commodity panel. */
+export function useCommodityOverview() {
+  return useSWR<CommodityOverview>(
+    "commodity-overview",
+    () => api.getCommodityOverview(),
+    {
+      refreshInterval: 5 * 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
 }

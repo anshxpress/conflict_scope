@@ -60,7 +60,12 @@ function formatAge(timestamp: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-const CommodityPanel: FC = () => {
+interface CommodityPanelProps {
+  onCommoditySelect?: (commodity: CommodityName) => void;
+  selectedCommodity?: CommodityName | null;
+}
+
+const CommodityPanel: FC<CommodityPanelProps> = ({ onCommoditySelect, selectedCommodity }) => {
   const { data, isLoading, error } = useCommodityPrices();
   const rate = (data as { usdToInr?: number } | undefined)?.usdToInr ?? 83.5;
 
@@ -95,10 +100,22 @@ const CommodityPanel: FC = () => {
           COMMODITY_ORDER.map((commodity) => {
             const entry = data?.[commodity];
             const color = COMMODITY_COLORS[commodity];
+            const isSelected = selectedCommodity === commodity;
             return (
               <div
                 key={commodity}
-                className="flex items-center gap-2.5 px-3 py-2 hover:bg-cs-panel/40 transition-colors"
+                role="button"
+                tabIndex={0}
+                onClick={() => onCommoditySelect?.(commodity)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") onCommoditySelect?.(commodity);
+                }}
+                className={`flex items-center gap-2.5 px-3 py-2 transition-colors cursor-pointer select-none ${
+                  isSelected
+                    ? "bg-cs-panel/70 border-l-2"
+                    : "hover:bg-cs-panel/40 border-l-2 border-transparent"
+                }`}
+                style={isSelected ? { borderLeftColor: COMMODITY_COLORS[commodity] } : undefined}
               >
                 {/* Icon */}
                 <span className="text-base shrink-0 leading-none">

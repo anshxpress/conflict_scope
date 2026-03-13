@@ -42,6 +42,25 @@ export const riskLevelEnum = pgEnum("risk_level", [
   "green",
 ]);
 
+export const geoEventCategoryEnum = pgEnum("geo_event_category", [
+  "military",
+  "political",
+  "economic",
+  "policy",
+]);
+
+export const commodityNameEnum = pgEnum("commodity_name", [
+  "gold",
+  "silver",
+  "oil",
+]);
+
+export const alertLevelEnum = pgEnum("alert_level", [
+  "info",
+  "warning",
+  "critical",
+]);
+
 export const impactTypeEnum = pgEnum("impact_type", [
   "civilian_casualties",
   "military_casualties",
@@ -220,6 +239,115 @@ export const resources = pgTable(
   })
 );
 
+// ── Event Commodity References ─────────────────────────
+
+export const eventCommodityRefs = pgTable(
+  "event_commodity_refs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    commodity: commodityNameEnum("commodity").notNull(),
+    category: geoEventCategoryEnum("category").notNull(),
+    triggerType: varchar("trigger_type", { length: 128 }).notNull(),
+    leaderName: varchar("leader_name", { length: 256 }),
+    policyAction: varchar("policy_action", { length: 256 }),
+    confidenceScore: confidenceEnum("confidence_score").notNull().default("medium"),
+    rationale: text("rationale"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    eventIdIdx: index("event_commodity_refs_event_id_idx").on(table.eventId),
+    commodityIdx: index("event_commodity_refs_commodity_idx").on(table.commodity),
+    categoryIdx: index("event_commodity_refs_category_idx").on(table.category),
+  })
+);
+
+// ── Commodity Correlations ─────────────────────────────
+
+export const commodityCorrelations = pgTable(
+  "commodity_correlations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    commodity: commodityNameEnum("commodity").notNull(),
+    windowHours: integer("window_hours").notNull(),
+    eventTimestamp: timestamp("event_timestamp", { withTimezone: true }).notNull(),
+    priceBefore: doublePrecision("price_before"),
+    priceAfter: doublePrecision("price_after"),
+    absoluteChange: doublePrecision("absolute_change"),
+    percentChange: doublePrecision("percent_change"),
+    marketReaction: doublePrecision("market_reaction"),
+    severityFactor: doublePrecision("severity_factor").notNull().default(1),
+    commodityWeight: doublePrecision("commodity_weight").notNull().default(1),
+    priceChangeFactor: doublePrecision("price_change_factor").notNull().default(1),
+    impactScore: doublePrecision("impact_score"),
+    source: varchar("source", { length: 256 }),
+    computedAt: timestamp("computed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    eventIdIdx: index("commodity_corr_event_id_idx").on(table.eventId),
+    commodityIdx: index("commodity_corr_commodity_idx").on(table.commodity),
+    windowIdx: index("commodity_corr_window_idx").on(table.windowHours),
+    uniqueEventWindowIdx: uniqueIndex("commodity_corr_event_window_idx").on(
+      table.eventId,
+      table.commodity,
+      table.windowHours
+    ),
+  })
+);
+
+// ── Commodity Alerts ───────────────────────────────────
+
+export const commodityAlerts = pgTable(
+  "commodity_alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").references(() => events.id, { onDelete: "set null" }),
+    commodity: commodityNameEnum("commodity").notNull(),
+    title: varchar("title", { length: 256 }).notNull(),
+    cause: text("cause").notNull(),
+    level: alertLevelEnum("level").notNull().default("warning"),
+    priceChangePercent: doublePrecision("price_change_percent"),
+    impactScore: doublePrecision("impact_score"),
+    acknowledged: integer("acknowledged").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    commodityIdx: index("commodity_alerts_commodity_idx").on(table.commodity),
+    levelIdx: index("commodity_alerts_level_idx").on(table.level),
+    createdIdx: index("commodity_alerts_created_idx").on(table.createdAt),
+  })
+);
+
+// ── Commodity Webhooks ─────────────────────────────────
+
+export const commodityWebhooks = pgTable(
+  "commodity_webhooks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 128 }).notNull(),
+    url: text("url").notNull(),
+    secret: varchar("secret", { length: 256 }),
+    enabled: integer("enabled").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    urlIdx: uniqueIndex("commodity_webhooks_url_idx").on(table.url),
+  })
+);
+
 // ── Type exports for application use ───────────────────
 
 export type Article = typeof articles.$inferSelect;
@@ -238,6 +366,14 @@ export type Commodity = typeof commodities.$inferSelect;
 export type NewCommodity = typeof commodities.$inferInsert;
 export type Resource = typeof resources.$inferSelect;
 export type NewResource = typeof resources.$inferInsert;
+export type EventCommodityRef = typeof eventCommodityRefs.$inferSelect;
+export type NewEventCommodityRef = typeof eventCommodityRefs.$inferInsert;
+export type CommodityCorrelation = typeof commodityCorrelations.$inferSelect;
+export type NewCommodityCorrelation = typeof commodityCorrelations.$inferInsert;
+export type CommodityAlert = typeof commodityAlerts.$inferSelect;
+export type NewCommodityAlert = typeof commodityAlerts.$inferInsert;
+export type CommodityWebhook = typeof commodityWebhooks.$inferSelect;
+export type NewCommodityWebhook = typeof commodityWebhooks.$inferInsert;
 export type EventType = (typeof eventTypeEnum.enumValues)[number];
 export type ConfidenceLevel = (typeof confidenceEnum.enumValues)[number];
 export type InfrastructureType =
@@ -245,3 +381,6 @@ export type InfrastructureType =
 export type ImpactType = (typeof impactTypeEnum.enumValues)[number];
 export type ImpactSeverity = (typeof impactSeverityEnum.enumValues)[number];
 export type RiskLevel = (typeof riskLevelEnum.enumValues)[number];
+export type GeoEventCategory = (typeof geoEventCategoryEnum.enumValues)[number];
+export type CommodityName = (typeof commodityNameEnum.enumValues)[number];
+export type AlertLevel = (typeof alertLevelEnum.enumValues)[number];

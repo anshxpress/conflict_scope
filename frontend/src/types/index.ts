@@ -181,6 +181,8 @@ export const RISK_LABELS: Record<RiskLevel, string> = {
 // ── Commodity types ────────────────────────────────────
 
 export type CommodityName = "gold" | "silver" | "oil";
+export type GeoEventCategory = "military" | "political" | "economic" | "policy";
+export type CommodityAlertLevel = "info" | "warning" | "critical";
 
 export interface CommodityPrice {
   price: number;
@@ -196,6 +198,72 @@ export type CommodityPrices = Record<CommodityName, CommodityPrice | null> & {
 export interface CountryResource {
   country: string;
   resources: CommodityName[];
+}
+
+export interface CommodityHistoryPoint {
+  price: number;
+  timestamp: string;
+  source: string;
+}
+
+export interface CommodityHistoryResponse {
+  commodity: CommodityName;
+  points: CommodityHistoryPoint[];
+}
+
+export interface CommodityInsightItem {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  eventType: EventType;
+  country: string;
+  triggerType: string | null;
+  category: GeoEventCategory | null;
+  leaderName: string | null;
+  policyAction: string | null;
+  windowHours: number;
+  eventTimestamp: string;
+  priceBefore: number | null;
+  priceAfter: number | null;
+  absoluteChange: number | null;
+  percentChange: number | null;
+  impactScore: number | null;
+}
+
+export interface CommodityInsightsResponse {
+  commodity: CommodityName;
+  insights: CommodityInsightItem[];
+}
+
+export interface CommodityAlert {
+  id: string;
+  eventId: string | null;
+  commodity: CommodityName;
+  title: string;
+  cause: string;
+  level: CommodityAlertLevel;
+  priceChangePercent: number | null;
+  impactScore: number | null;
+  acknowledged: number;
+  createdAt: string;
+}
+
+export interface CommodityWebhookRegistration {
+  id: string;
+  name: string;
+  url: string;
+  enabled: boolean;
+}
+
+export interface CommodityOverview {
+  latestPrices: unknown;
+  topImpacts: Array<{
+    commodity: CommodityName;
+    impactScore: number | null;
+    percentChange: number | null;
+    eventTitle: string;
+  }>;
+  latestAlerts: CommodityAlert[];
 }
 
 export const COMMODITY_ICONS: Record<CommodityName, string> = {

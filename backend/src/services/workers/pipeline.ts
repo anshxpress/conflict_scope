@@ -4,6 +4,8 @@ import { fetchAllFeeds, fetchGdeltArticles } from "../rss/feed-fetcher";
 import { extractConflictEvent } from "../nlp/event-extractor";
 import { geocodeFirstMatch } from "../geocoding/nominatim";
 import { calculateConfidence } from "../verification/confidence";
+import { mapEventToCommodities } from "../commodities/impact-mapping";
+import { computeCommodityCorrelations } from "../commodities/correlation-engine";
 
 /**
  * Main pipeline: Fetch → Store Article → Extract → Geocode → Store Event + Impacts → Risk
@@ -16,6 +18,7 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
   const startTime = Date.now();
   let eventsCreated = 0;
   let impactsCreated = 0;
+  let commodityMappingsCreated = 0;
   let articlesStored = 0;
 
   try {
@@ -152,9 +155,40 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
           impactsCreated += extracted.impacts.length;
         }
 
+        // Map and persist geopolitical commodity impacts
+        const mappedImpacts = mapEventToCommodities({
+          title: extracted.title,
+          description: extracted.description,
+          eventType: extracted.eventType,
+          impacts: extracted.impacts,
+        });
+
+        if (mappedImpacts.length > 0) {
+          await db.insert(schema.eventCommodityRefs).values(
+            mappedImpacts.map((m) => ({
+              eventId: event.id,
+              commodity: m.commodity,
+              category: extracted.eventCategory ?? m.category,
+              triggerType: m.triggerType,
+              leaderName: extracted.leaderName ?? m.leaderName,
+              policyAction: extracted.policyAction ?? m.policyAction,
+              confidenceScore: m.confidenceScore,
+              rationale: m.rationale,
+            }))
+          );
+          commodityMappingsCreated += mappedImpacts.length;
+
+          await computeCommodityCorrelations({
+            eventId: event.id,
+            eventTimestamp: article.publishedDate,
+            impacts: extracted.impacts,
+            matches: mappedImpacts,
+          });
+        }
+
         eventsCreated++;
         console.log(
-          `[Pipeline] Created event: "${extracted.title}" [${extracted.eventType}] in ${geoResult.country} (${extracted.impacts.length} impacts)`
+          `[Pipeline] Created event: "${extracted.title}" [${extracted.eventType}] in ${geoResult.country} (${extracted.impacts.length} impacts, ${mappedImpacts.length} commodity links)`
         );
       } catch (err) {
         console.error(
@@ -175,7 +209,7 @@ export async function runPipeline(sinceMinutes = 30): Promise<number> {
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(
-    `[Pipeline] Complete. Created ${eventsCreated} events, ${impactsCreated} impacts, ${articlesStored} articles in ${duration}s\n`
+    `[Pipeline] Complete. Created ${eventsCreated} events, ${impactsCreated} impacts, ${commodityMappingsCreated} commodity links, ${articlesStored} articles in ${duration}s\n`
   );
   return eventsCreated;
 }

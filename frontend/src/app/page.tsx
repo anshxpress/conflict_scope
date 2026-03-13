@@ -20,9 +20,10 @@ import CountryRiskPanel from "@/components/dashboard/CountryRiskPanel";
 import NotificationBell from "@/components/dashboard/NotificationBell";
 import UpdatesPanel from "@/components/dashboard/UpdatesPanel";
 import CommodityPanel from "@/components/dashboard/CommodityPanel";
+import CommodityInsightsPanel from "@/components/dashboard/CommodityInsightsPanel";
 import TimelineSlider from "@/components/timeline/TimelineSlider";
 import SmoothScroll from "@/components/SmoothScroll";
-import type { ConflictEvent, InfrastructureType, RiskMap } from "@/types";
+import type { ConflictEvent, InfrastructureType, RiskMap, CommodityName } from "@/types";
 
 // Dynamically import MapView to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map/MapView"), {
@@ -72,6 +73,8 @@ export default function DashboardPage() {
   );
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  // Selected commodity opens right panel with full analysis
+  const [selectedCommodity, setSelectedCommodity] = useState<CommodityName | null>(null);
 
   // â”€â”€ Data fetching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const filterParams = useMemo(() => {
@@ -126,13 +129,28 @@ export default function DashboardPage() {
   const handleEventSelect = useCallback((ev: ConflictEvent) => {
     setSelectedEvent(ev);
     setSelectedMapCountry(null);
+    setSelectedCommodity(null);
     setRightPanelOpen(true);
   }, []);
 
   const handleCountrySelect = useCallback((country: string) => {
     setSelectedMapCountry(country);
     setSelectedEvent(null);
+    setSelectedCommodity(null);
     setRightPanelOpen(true);
+  }, []);
+
+  const handleCommoditySelect = useCallback((commodity: CommodityName) => {
+    setSelectedCommodity((prev) => {
+      if (prev === commodity) {
+        setRightPanelOpen(false);
+        return null;
+      }
+      setSelectedMapCountry(null);
+      setSelectedEvent(null);
+      setRightPanelOpen(true);
+      return commodity;
+    });
   }, []);
 
   const handleResetFilters = useCallback(() => {
@@ -154,9 +172,12 @@ export default function DashboardPage() {
     });
   }, []);
 
-  // Right panel shows either country details or event details
+  // Right panel shows event, country, or commodity details
   const rightPanelVisible =
-    rightPanelOpen && (selectedEvent !== null || selectedMapCountry !== null);
+    rightPanelOpen &&
+    (selectedEvent !== null ||
+      selectedMapCountry !== null ||
+      selectedCommodity !== null);
 
   return (
     <div className="flex flex-col h-screen bg-cs-dark overflow-hidden">
@@ -302,7 +323,10 @@ export default function DashboardPage() {
 
           {/* Commodity panel — always pinned to bottom of sidebar */}
           <div className="w-72 shrink-0">
-            <CommodityPanel />
+            <CommodityPanel
+              onCommoditySelect={handleCommoditySelect}
+              selectedCommodity={selectedCommodity}
+            />
           </div>
         </div>
 
@@ -444,6 +468,15 @@ export default function DashboardPage() {
                   }}
                 />
               </div>
+            )}
+            {selectedCommodity && !selectedMapCountry && !selectedEvent && (
+              <CommodityInsightsPanel
+                commodity={selectedCommodity}
+                onClose={() => {
+                  setSelectedCommodity(null);
+                  setRightPanelOpen(false);
+                }}
+              />
             )}
           </SmoothScroll>
         </div>

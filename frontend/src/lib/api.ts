@@ -8,6 +8,12 @@ import type {
   CountryRiskDetails,
   CommodityPrices,
   CountryResource,
+  CommodityHistoryResponse,
+  CommodityInsightsResponse,
+  CommodityAlert,
+  CommodityName,
+  CommodityWebhookRegistration,
+  CommodityOverview,
 } from "@/types";
 
 const API_URL =
@@ -17,9 +23,13 @@ const API_URL =
     : "http://localhost:3001");
 const API_BASE = `${API_URL}/api/v1`;
 
-async function fetchJSON<T>(path: string): Promise<T> {
+async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { Accept: "application/json" },
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init?.headers ?? {}),
+    },
   });
 
   if (!res.ok) {
@@ -125,5 +135,83 @@ export const api = {
    */
   getCountryResources(country: string): Promise<{ country: string; resources: string[] }> {
     return fetchJSON(`/commodities/resources/${encodeURIComponent(country)}`);
+  },
+
+  /**
+   * Fetch historical price points for a commodity.
+   */
+  getCommodityHistory(
+    commodity: CommodityName,
+    params?: { hours?: number }
+  ): Promise<CommodityHistoryResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.hours) searchParams.set("hours", String(params.hours));
+    const qs = searchParams.toString();
+    return fetchJSON(`/commodities/history/${encodeURIComponent(commodity)}${qs ? `?${qs}` : ""}`);
+  },
+
+  /**
+   * Fetch event-linked commodity impact insights.
+   */
+  getCommodityInsights(params?: {
+    commodity?: CommodityName;
+    hours?: number;
+  }): Promise<CommodityInsightsResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.commodity) searchParams.set("commodity", params.commodity);
+    if (params?.hours) searchParams.set("hours", String(params.hours));
+    const qs = searchParams.toString();
+    return fetchJSON(`/commodities/insights${qs ? `?${qs}` : ""}`);
+  },
+
+  /**
+   * Fetch generated commodity alerts.
+   */
+  getCommodityAlerts(params?: {
+    commodity?: CommodityName;
+    limit?: number;
+  }): Promise<CommodityAlert[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.commodity) searchParams.set("commodity", params.commodity);
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const qs = searchParams.toString();
+    return fetchJSON(`/commodities/alerts${qs ? `?${qs}` : ""}`);
+  },
+
+  /**
+   * Fetch aggregated insight payload for dashboard cards.
+   */
+  getCommodityOverview(): Promise<CommodityOverview> {
+    return fetchJSON("/commodities/overview");
+  },
+
+  /**
+   * Register/update commodity alert webhook.
+   */
+  registerCommodityWebhook(body: {
+    name: string;
+    url: string;
+    secret?: string;
+    enabled?: boolean;
+  }): Promise<CommodityWebhookRegistration> {
+    return fetchJSON(`/commodities/webhooks`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  },
+
+  /**
+   * Dispatch an alert to all enabled webhooks.
+   */
+  dispatchCommodityAlert(alertId: string): Promise<{
+    dispatched: number;
+    failed: number;
+  }> {
+    return fetchJSON(`/commodities/alerts/${encodeURIComponent(alertId)}/dispatch`, {
+      method: "POST",
+    });
   },
 };

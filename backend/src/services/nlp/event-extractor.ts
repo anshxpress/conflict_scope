@@ -11,10 +11,14 @@ export interface ExtractedEvent {
   title: string;
   description: string;
   eventType: EventType;
+  eventCategory?: "military" | "political" | "economic" | "policy";
   locations: string[];
   country: string;
   isConflictRelated: boolean;
   keywords: string[];
+  leaderName?: string | null;
+  policyAction?: string | null;
+  affectedCommodities?: Array<"gold" | "silver" | "oil">;
   impacts: ExtractedImpact[];
 }
 
@@ -187,6 +191,34 @@ const WAR_KEYWORDS: Record<EventType, string[]> = {
 };
 
 const ALL_WAR_KEYWORDS = Object.values(WAR_KEYWORDS).flat();
+
+const POLITICAL_ECONOMIC_KEYWORDS = [
+  "sanctions",
+  "trade restrictions",
+  "tariffs",
+  "export ban",
+  "production cut",
+  "output cut",
+  "energy law",
+  "mining regulation",
+  "economic policy",
+  "peace negotiations",
+  "diplomatic tension",
+  "leader said",
+  "announced policy",
+  "threatened sanctions",
+  "energy exports",
+  "production announcement",
+];
+
+const LEADER_CUES = [
+  "president",
+  "prime minister",
+  "energy minister",
+  "foreign minister",
+  "chancellor",
+  "minister",
+];
 
 // ── Weak words: require ADDITIONAL context to count ─────────────────────────
 //
@@ -432,12 +464,21 @@ export function extractConflictEvent(
   const specificMatches = ALL_WAR_KEYWORDS.filter((kw) =>
     combinedText.includes(kw)
   );
+  const politicalEconomicMatches = POLITICAL_ECONOMIC_KEYWORDS.filter((kw) =>
+    combinedText.includes(kw)
+  );
   const titleSpecificMatches = ALL_WAR_KEYWORDS.filter((kw) =>
+    titleLower.includes(kw)
+  );
+  const titlePolicyMatches = POLITICAL_ECONOMIC_KEYWORDS.filter((kw) =>
     titleLower.includes(kw)
   );
 
   const hasEnoughKeywords =
-    specificMatches.length >= 2 || titleSpecificMatches.length >= 1;
+    specificMatches.length >= 2 ||
+    titleSpecificMatches.length >= 1 ||
+    politicalEconomicMatches.length >= 1 ||
+    titlePolicyMatches.length >= 1;
 
   if (!hasEnoughKeywords) {
     // Last chance: does the text have a weak word AND a geopolitical anchor?
@@ -449,9 +490,9 @@ export function extractConflictEvent(
     const hasAnchor = GEOPOLITICAL_ANCHORS.some((a) =>
       combinedText.includes(a)
     );
-    if (!(hasWeakWord && hasAnchor && specificMatches.length >= 1)) {
+    if (!(hasWeakWord && hasAnchor && (specificMatches.length >= 1 || politicalEconomicMatches.length >= 1))) {
       console.debug(
-        `[NLP] Rejected (insufficient keywords ${specificMatches.length}): ${title}`
+        `[NLP] Rejected (insufficient keywords war=${specificMatches.length}, geoEco=${politicalEconomicMatches.length}): ${title}`
       );
       return null;
     }
@@ -505,15 +546,23 @@ export function extractConflictEvent(
 
   // ── Extract impacts ────────────────────────────────────────────────────
   const impacts = extractImpacts(combinedText);
+  const leaderName = extractLeaderName(title, content);
+  const policyAction = extractPolicyAction(combinedText);
+  const eventCategory = classifyEventCategory(eventType, politicalEconomicMatches.length);
+  const affectedCommodities = inferCommodities(combinedText);
 
   return {
     title,
     description,
     eventType,
+    eventCategory,
     locations: allLocations.slice(0, 5),
     country,
     isConflictRelated: true,
-    keywords: [...new Set(allMatchedKeywords)],
+    keywords: [...new Set([...allMatchedKeywords, ...politicalEconomicMatches])],
+    leaderName,
+    policyAction,
+    affectedCommodities,
     impacts,
   };
 }
@@ -722,6 +771,66 @@ function classifyEventType(text: string): EventType {
   }
 
   return bestType;
+}
+
+function classifyEventCategory(
+  eventType: EventType,
+  politicalEconomicMatchCount: number
+): "military" | "political" | "economic" | "policy" {
+  if (eventType === "infrastructure_attack" || eventType === "airstrike" || eventType === "missile_strike") {
+    return "military";
+  }
+  if (politicalEconomicMatchCount === 0) return "military";
+
+  if (politicalEconomicMatchCount > 0) return "economic";
+  return "political";
+}
+
+function extractLeaderName(title: string, content: string): string | null {
+  const text = `${title}. ${content}`;
+  const patterns = [
+    /(?:president|prime minister|pm|chancellor|minister|energy minister|foreign minister)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/,
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}),\s*(?:president|prime minister|pm|minister|chancellor)/,
+  ];
+
+  for (const re of patterns) {
+    const m = re.exec(text);
+    if (m?.[1]) return m[1].trim();
+  }
+
+  const lowered = text.toLowerCase();
+  const hasCue = LEADER_CUES.some((cue) => lowered.includes(cue));
+  return hasCue ? "Unknown Leader" : null;
+}
+
+function extractPolicyAction(text: string): string | null {
+  if (text.includes("production cut") || text.includes("output cut")) {
+    return "Production cut announced";
+  }
+  if (text.includes("sanctions") || text.includes("embargo")) {
+    return "Sanctions action";
+  }
+  if (text.includes("export ban") || text.includes("trade restrictions") || text.includes("tariffs")) {
+    return "Trade restriction announced";
+  }
+  if (text.includes("energy law") || text.includes("mining regulation") || text.includes("decree")) {
+    return "New policy or law introduced";
+  }
+  return null;
+}
+
+function inferCommodities(text: string): Array<"gold" | "silver" | "oil"> {
+  const out = new Set<"gold" | "silver" | "oil">();
+  if (text.includes("oil") || text.includes("refinery") || text.includes("pipeline") || text.includes("energy export")) {
+    out.add("oil");
+  }
+  if (text.includes("gold") || text.includes("safe-haven") || text.includes("bullion")) {
+    out.add("gold");
+  }
+  if (text.includes("silver") || text.includes("industrial metals") || text.includes("trade restrictions")) {
+    out.add("silver");
+  }
+  return [...out];
 }
 
 function detectCountry(text: string, locations: string[]): string | null {
