@@ -18,11 +18,7 @@ const UPDATES: Update[] = [
     label: "Conflict-driven price spike alerts with OSINT correlation",
   },
   {
-    status: "live",
-    label: "Live commodity ticker linked to active conflict zones",
-  },
-  {
-    status: "live",
+    status: "in-progress",
     label: "Custom alert thresholds for oil, gold & grain spikes",
   },
   {
