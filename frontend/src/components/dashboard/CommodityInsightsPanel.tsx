@@ -62,6 +62,12 @@ function toIndianPrice(
   return `₹${Math.round(usdPrice * rate).toLocaleString("en-IN")} / bbl`;
 }
 
+function commodityDisplayName(commodity: CommodityName): string {
+  if (commodity === "gold") return "MCX Gold";
+  if (commodity === "silver") return "MCX Silver";
+  return COMMODITY_LABELS[commodity];
+}
+
 function formatRel(ts: string): string {
   const diff = Date.now() - new Date(ts).getTime();
   const mins = Math.floor(diff / 60000);
@@ -251,7 +257,7 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
               {COMMODITY_ICONS[commodity]}
             </span>
             <h2 className="text-sm font-bold" style={{ color }}>
-              {COMMODITY_LABELS[commodity]}
+              {commodityDisplayName(commodity)}
             </h2>
             <span className="text-[9px] uppercase tracking-wider text-gray-600 border border-cs-border rounded px-1.5 py-0.5">
               Geopolitical Analysis
@@ -263,7 +269,7 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
                 {toUsdLabel(commodity, currentPrice.price)}
               </span>
               <span className="text-[10px] text-gray-500">
-                {toIndianPrice(commodity, currentPrice.price, rate)}
+                MCX proxy: {toIndianPrice(commodity, currentPrice.price, rate)}
               </span>
               <span className="text-[9px] text-gray-600">
                 · {formatRel(currentPrice.timestamp)}

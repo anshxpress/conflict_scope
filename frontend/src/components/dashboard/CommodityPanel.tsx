@@ -50,6 +50,12 @@ function toUsdLabel(commodity: CommodityName, usdPrice: number): string {
   return `$${usdPrice.toFixed(2)} / oz`;
 }
 
+function commodityDisplayName(commodity: CommodityName): string {
+  if (commodity === "gold") return "MCX Gold";
+  if (commodity === "silver") return "MCX Silver";
+  return COMMODITY_LABELS[commodity];
+}
+
 function formatAge(timestamp: string): string {
   const diff = Date.now() - new Date(timestamp).getTime();
   const mins = Math.floor(diff / 60000);
@@ -80,7 +86,7 @@ const CommodityPanel: FC<CommodityPanelProps> = ({
           Commodity Market
         </span>
         <span className="text-[9px] text-gray-600 flex items-center gap-1">
-          <span className="text-orange-400">🇮🇳</span> Indian rates
+          <span className="text-orange-400">🇮🇳</span> MCX proxy rates
         </span>
       </div>
 
@@ -136,11 +142,11 @@ const CommodityPanel: FC<CommodityPanelProps> = ({
                     className="text-[11px] font-semibold leading-tight"
                     style={{ color }}
                   >
-                    {COMMODITY_LABELS[commodity]}
+                    {commodityDisplayName(commodity)}
                   </div>
                   {entry ? (
                     <div className="text-[9px] text-gray-600 mt-0.5">
-                      {toUsdLabel(commodity, entry.price)} ·{" "}
+                      Intl: {toUsdLabel(commodity, entry.price)} ·{" "}
                       {formatAge(entry.timestamp)}
                     </div>
                   ) : (
