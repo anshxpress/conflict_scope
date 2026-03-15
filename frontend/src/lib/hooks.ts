@@ -12,6 +12,7 @@ import type {
   CommodityName,
   CommodityHistoryResponse,
   CommodityInsightsResponse,
+  CommodityForecastResponse,
   CommodityAlert,
   CommodityOverview,
 } from "@/types";
@@ -117,6 +118,21 @@ export function useCommodityInsights(
   return useSWR<CommodityInsightsResponse>(
     commodity ? ["commodity-insights", commodity, hours] : null,
     () => api.getCommodityInsights({ commodity: commodity!, hours }),
+    {
+      refreshInterval: 5 * 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
+}
+
+/** Strict-verified forecast for commodity, optimized for panel prediction overlay. */
+export function useCommodityForecast(
+  commodity: CommodityName | null,
+  hours = 24 * 7
+) {
+  return useSWR<CommodityForecastResponse>(
+    commodity ? ["commodity-forecast", commodity, hours] : null,
+    () => api.getCommodityForecast(commodity!, { hours }),
     {
       refreshInterval: 5 * 60 * 1000,
       revalidateOnFocus: false,

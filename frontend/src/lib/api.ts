@@ -10,6 +10,7 @@ import type {
   CountryResource,
   CommodityHistoryResponse,
   CommodityInsightsResponse,
+  CommodityForecastResponse,
   CommodityAlert,
   CommodityName,
   CommodityWebhookRegistration,
@@ -162,6 +163,21 @@ export const api = {
     if (params?.hours) searchParams.set("hours", String(params.hours));
     const qs = searchParams.toString();
     return fetchJSON(`/commodities/insights${qs ? `?${qs}` : ""}`);
+  },
+
+  /**
+   * Fetch strict-verified forecast signals for a commodity.
+   */
+  getCommodityForecast(
+    commodity: CommodityName,
+    params?: { hours?: number }
+  ): Promise<CommodityForecastResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.hours) searchParams.set("hours", String(params.hours));
+    const qs = searchParams.toString();
+    return fetchJSON(
+      `/commodities/forecast/${encodeURIComponent(commodity)}${qs ? `?${qs}` : ""}`
+    );
   },
 
   /**

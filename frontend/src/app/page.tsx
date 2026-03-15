@@ -21,7 +21,6 @@ import NotificationBell from "@/components/dashboard/NotificationBell";
 import UpdatesPanel from "@/components/dashboard/UpdatesPanel";
 import CommodityPanel from "@/components/dashboard/CommodityPanel";
 import CommodityInsightsPanel from "@/components/dashboard/CommodityInsightsPanel";
-import TimelineSlider from "@/components/timeline/TimelineSlider";
 import SmoothScroll from "@/components/SmoothScroll";
 import type {
   ConflictEvent,
@@ -42,6 +41,18 @@ const MapView = dynamic(() => import("@/components/map/MapView"), {
     </div>
   ),
 });
+
+const TimelineSlider = dynamic(
+  () => import("@/components/timeline/TimelineSlider"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-cs-panel border border-cs-border rounded-lg px-4 py-3 text-xs text-gray-500">
+        Initializing timeline...
+      </div>
+    ),
+  },
+);
 
 export default function DashboardPage() {
   // â”€â”€ Filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

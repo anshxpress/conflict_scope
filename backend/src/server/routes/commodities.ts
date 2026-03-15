@@ -1,6 +1,12 @@
 import { Elysia, t } from "elysia";
 import { db, schema } from "../../../db";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { isTrustedSource } from "../../services/verification/confidence";
+import {
+  computeCommodityForecast,
+  isStrictlyVerifiedSignal,
+} from "../../services/commodities/forecast-engine";
+import { toCommodityForecastApiResponse } from "./contracts/commodity-forecast";
 
 /** Fetch USD→INR rate from frankfurter.app (free, no API key). */
 async function fetchUsdToInr(): Promise<number> {
@@ -149,9 +155,11 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
         category: schema.eventCommodityRefs.category,
         leaderName: schema.eventCommodityRefs.leaderName,
         policyAction: schema.eventCommodityRefs.policyAction,
+        refConfidence: schema.eventCommodityRefs.confidenceScore,
         eventTitle: schema.events.title,
         country: schema.events.country,
         eventType: schema.events.eventType,
+        eventConfidence: schema.events.confidenceScore,
       })
       .from(schema.commodityCorrelations)
       .innerJoin(schema.events, eq(schema.events.id, schema.commodityCorrelations.eventId))
@@ -171,27 +179,87 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
       .orderBy(desc(schema.commodityCorrelations.impactScore))
       .limit(100);
 
+    const eventIds = [...new Set(rows.map((r) => r.eventId))];
+    const sourcesByEvent = new Map<string, { sourceCount: number; hasTrustedSource: boolean }>();
+
+    if (eventIds.length > 0) {
+      const sourceRows = await db
+        .select({
+          eventId: schema.sources.eventId,
+          sourceName: schema.sources.sourceName,
+        })
+        .from(schema.sources)
+        .where(inArray(schema.sources.eventId, eventIds));
+
+      for (const source of sourceRows) {
+        const current = sourcesByEvent.get(source.eventId) ?? {
+          sourceCount: 0,
+          hasTrustedSource: false,
+        };
+        current.sourceCount += 1;
+        if (!current.hasTrustedSource && isTrustedSource(source.sourceName)) {
+          current.hasTrustedSource = true;
+        }
+        sourcesByEvent.set(source.eventId, current);
+      }
+    }
+
     return {
       commodity,
-      insights: rows.map((r) => ({
-        id: r.id,
-        eventId: r.eventId,
-        eventTitle: r.eventTitle,
-        eventType: r.eventType,
-        country: r.country,
-        triggerType: r.triggerType,
-        category: r.category,
-        leaderName: r.leaderName,
-        policyAction: r.policyAction,
-        windowHours: r.windowHours,
-        eventTimestamp: r.eventTimestamp.toISOString(),
-        priceBefore: r.priceBefore,
-        priceAfter: r.priceAfter,
-        absoluteChange: r.absoluteChange,
-        percentChange: r.percentChange,
-        impactScore: r.impactScore,
-      })),
+      insights: rows.map((r) => {
+        const verification = sourcesByEvent.get(r.eventId) ?? {
+          sourceCount: 0,
+          hasTrustedSource: false,
+        };
+        const eventConfidence = r.eventConfidence;
+        const referenceConfidence = r.refConfidence;
+        const isStrictlyVerified = isStrictlyVerifiedSignal({
+          eventConfidence,
+          referenceConfidence,
+          hasTrustedSource: verification.hasTrustedSource,
+        });
+
+        return {
+          id: r.id,
+          eventId: r.eventId,
+          eventTitle: r.eventTitle,
+          eventType: r.eventType,
+          country: r.country,
+          triggerType: r.triggerType,
+          category: r.category,
+          leaderName: r.leaderName,
+          policyAction: r.policyAction,
+          windowHours: r.windowHours,
+          eventTimestamp: r.eventTimestamp.toISOString(),
+          priceBefore: r.priceBefore,
+          priceAfter: r.priceAfter,
+          absoluteChange: r.absoluteChange,
+          percentChange: r.percentChange,
+          impactScore: r.impactScore,
+          sourceCount: verification.sourceCount,
+          hasTrustedSource: verification.hasTrustedSource,
+          eventConfidence,
+          referenceConfidence,
+          isStrictlyVerified,
+        };
+      }),
     };
+  })
+
+  /**
+   * GET /commodities/forecast/:commodity?hours=168
+   * Returns strict-verified forecast signals for 1h and 24h horizons.
+   */
+  .get("/forecast/:commodity", async ({ params, query }) => {
+    const commodity = params.commodity as "gold" | "silver" | "oil";
+    if (!schema.commodityNameEnum.enumValues.includes(commodity)) {
+      return { error: "Unsupported commodity" };
+    }
+
+    const hours = Math.max(24, Math.min(parseInt(query.hours ?? "168", 10), 24 * 30));
+    const forecast = await computeCommodityForecast({ commodity, historyHours: hours });
+
+    return toCommodityForecastApiResponse({ commodity, forecast });
   })
 
   /**

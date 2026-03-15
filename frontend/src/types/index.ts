@@ -228,6 +228,11 @@ export interface CommodityInsightItem {
   absoluteChange: number | null;
   percentChange: number | null;
   impactScore: number | null;
+  sourceCount: number;
+  hasTrustedSource: boolean;
+  eventConfidence: ConfidenceLevel | null;
+  referenceConfidence: ConfidenceLevel | null;
+  isStrictlyVerified: boolean;
 }
 
 export interface CommodityInsightsResponse {
@@ -246,6 +251,29 @@ export interface CommodityAlert {
   impactScore: number | null;
   acknowledged: number;
   createdAt: string;
+}
+
+export type ForecastDirection = "up" | "down" | "neutral";
+
+export interface CommodityForecastHorizon {
+  windowHours: 1 | 24;
+  direction: ForecastDirection;
+  confidencePercent: number;
+  predictedPrice: number;
+  predictedChangePercent: number;
+  priceRangeMin: number;
+  priceRangeMax: number;
+  verifiedEventCount: number;
+  signalStrength: number;
+}
+
+export interface CommodityForecastResponse {
+  commodity: CommodityName;
+  strictVerification: true;
+  modelVersion: string;
+  basePrice: number | null;
+  baseTimestamp: string | null;
+  horizons: CommodityForecastHorizon[];
 }
 
 export interface CommodityWebhookRegistration {

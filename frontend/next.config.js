@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Hide Next.js dev indicator bubble/logo in development.
+  devIndicators: false,
   // Standalone output is for Docker self-hosting only.
   // Vercel manages its own output format — skip this when deploying to Vercel.
   ...(process.env.VERCEL ? {} : { output: "standalone" }),

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type FC } from "react";
 import L from "leaflet";
+import "leaflet.heat";
 import "leaflet.markercluster";
 import type {
   ConflictEvent,
@@ -404,12 +405,21 @@ const MapView: FC<MapViewProps> = ({
     const map = mapRef.current;
     if (!map) return;
 
+    const markerClusterFactory = (
+      L as unknown as {
+        markerClusterGroup?: (...args: unknown[]) => L.MarkerClusterGroup;
+      }
+    ).markerClusterGroup;
+    if (typeof markerClusterFactory !== "function") {
+      console.warn("[MapView] leaflet.markercluster plugin is not available");
+      return;
+    }
+
     if (eventLayerRef.current) {
       map.removeLayer(eventLayerRef.current);
     }
 
-    // @ts-ignore
-    const cluster = L.markerClusterGroup({
+    const cluster = markerClusterFactory({
       maxClusterRadius: 40,
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
@@ -514,6 +524,16 @@ const MapView: FC<MapViewProps> = ({
     const map = mapRef.current;
     if (!map) return;
 
+    const heatLayerFactory = (
+      L as unknown as {
+        heatLayer?: (...args: unknown[]) => L.Layer;
+      }
+    ).heatLayer;
+    if (typeof heatLayerFactory !== "function") {
+      console.warn("[MapView] leaflet.heat plugin is not available");
+      return;
+    }
+
     if (heatLayerRef.current) {
       map.removeLayer(heatLayerRef.current);
       heatLayerRef.current = null;
@@ -527,8 +547,7 @@ const MapView: FC<MapViewProps> = ({
       0.5,
     ]);
 
-    // @ts-ignore
-    const heat = L.heatLayer(heatData, {
+    const heat = heatLayerFactory(heatData, {
       radius: 25,
       blur: 15,
       maxZoom: 10,

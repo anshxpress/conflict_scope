@@ -7,6 +7,7 @@ import {
   useCommodityHistory,
   useCommodityInsights,
   useCommodityAlerts,
+  useCommodityForecast,
 } from "@/lib/hooks";
 import { COMMODITY_ICONS, COMMODITY_LABELS } from "@/types";
 import type { CommodityName, CommodityAlertLevel } from "@/types";
@@ -37,6 +38,27 @@ const ALERT_STYLES: Record<
     bg: "bg-red-950/50",
     text: "text-red-400",
     border: "border-red-800/50",
+  },
+};
+
+const CONFIDENCE_STYLES: Record<
+  "low" | "medium" | "high",
+  { bg: string; text: string; border: string }
+> = {
+  low: {
+    bg: "bg-red-950/30",
+    text: "text-red-400",
+    border: "border-red-900/40",
+  },
+  medium: {
+    bg: "bg-yellow-950/30",
+    text: "text-yellow-400",
+    border: "border-yellow-900/40",
+  },
+  high: {
+    bg: "bg-green-950/30",
+    text: "text-green-400",
+    border: "border-green-900/40",
   },
 };
 
@@ -100,12 +122,28 @@ const WINDOW_OPTIONS = [
 
 // ── Mini SVG sparkline ─────────────────────────────────────────────────────
 
-function Sparkline({ points, color }: { points: number[]; color: string }) {
+function Sparkline({
+  points,
+  color,
+  forecast,
+}: {
+  points: number[];
+  color: string;
+  forecast?: {
+    predictedPrice: number;
+    windowHours: number;
+    direction: "up" | "down" | "neutral";
+  };
+}) {
   if (points.length < 2) return null;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
+  const future = forecast ? [forecast.predictedPrice] : [];
+  const all = [...points, ...future];
+  const min = Math.min(...all);
+  const max = Math.max(...all);
   const range = max - min || 1;
   const W = 130;
+  const forecastX = W + 24;
+  const svgWidth = forecast ? W + 28 : W;
   const H = 36;
   const d = points
     .map((p, i) => {
@@ -117,10 +155,21 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
   const first = points[0];
   const last = points[points.length - 1];
   const pct = ((last - first) / first) * 100;
+  const forecastColor =
+    forecast?.direction === "up"
+      ? "#22c55e"
+      : forecast?.direction === "down"
+        ? "#ef4444"
+        : "#9ca3af";
+  const forecastY =
+    forecast != null
+      ? (H - ((forecast.predictedPrice - min) / range) * H).toFixed(1)
+      : null;
+
   return (
     <div className="flex items-center gap-3">
       <svg
-        width={W}
+        width={svgWidth}
         height={H}
         className="overflow-visible shrink-0"
         style={{ display: "block" }}
@@ -145,6 +194,25 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
           strokeLinejoin="round"
           strokeLinecap="round"
         />
+        {forecast && forecastY && (
+          <>
+            <path
+              d={`M ${W} ${(H - ((last - min) / range) * H).toFixed(1)} L ${forecastX} ${forecastY}`}
+              stroke={forecastColor}
+              strokeWidth="1.4"
+              strokeDasharray="3 3"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <circle
+              cx={forecastX}
+              cy={forecastY}
+              r="2"
+              fill={forecastColor}
+              opacity="0.9"
+            />
+          </>
+        )}
         {/* End dot */}
         <circle
           cx={W}
@@ -161,6 +229,7 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
         </div>
         <div className="text-[9px] text-gray-600 mt-0.5">
           {points.length} pts
+          {forecast ? ` + ${forecast.windowHours}h` : ""}
         </div>
       </div>
     </div>
@@ -199,6 +268,7 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
 }) => {
   // 0 = show all window sizes; 1 / 6 / 24 = filter event list by correlation window
   const [windowFilter, setWindowFilter] = useState<0 | 1 | 6 | 24>(0);
+  const [forecastWindow, setForecastWindow] = useState<1 | 24>(24);
 
   const color = COMMODITY_COLORS[commodity];
 
@@ -211,6 +281,8 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
   const { data: insightsData, isLoading: insightsLoading } =
     useCommodityInsights(commodity, 168);
   const { data: alertsData } = useCommodityAlerts(commodity, 10);
+  const { data: forecastData, isLoading: forecastLoading } =
+    useCommodityForecast(commodity, 168);
 
   const rate =
     (priceData as { usdToInr?: number } | undefined)?.usdToInr ?? 83.5;
@@ -221,19 +293,24 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
     [historyData],
   );
 
-  const allInsights = insightsData?.insights ?? [];
+  const allInsights = (insightsData?.insights ?? []).filter(
+    (i) => i.isStrictlyVerified,
+  );
   // Apply optional windowHours filter from the tab picker
   const insights =
     windowFilter === 0
       ? allInsights
       : allInsights.filter((i) => i.windowHours === windowFilter);
   const alerts = alertsData ?? [];
+  const selectedForecast =
+    forecastData?.horizons.find((h) => h.windowHours === forecastWindow) ??
+    forecastData?.horizons[0];
 
   // Per-window summary always derived from the FULL dataset (no windowFilter applied)
   const windowSummary = useMemo(() => {
     return ([1, 6, 24] as const).map((w) => {
       const subset = (insightsData?.insights ?? []).filter(
-        (i) => i.windowHours === w,
+        (i) => i.windowHours === w && i.isStrictlyVerified,
       );
       if (!subset.length) return { w, avg: null, pct: null };
       const avgImpact =
@@ -313,13 +390,91 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
                 Loading…
               </div>
             ) : sparklinePoints.length >= 2 ? (
-              <Sparkline points={sparklinePoints} color={color} />
+              <Sparkline
+                points={sparklinePoints}
+                color={color}
+                forecast={
+                  selectedForecast
+                    ? {
+                        predictedPrice: selectedForecast.predictedPrice,
+                        windowHours: selectedForecast.windowHours,
+                        direction: selectedForecast.direction,
+                      }
+                    : undefined
+                }
+              />
             ) : (
               <div className="h-9 flex items-center text-[10px] text-gray-600">
                 No history data yet — prices will appear after the next worker
                 run.
               </div>
             )}
+
+            <div className="mt-2 border-t border-cs-border/50 pt-2">
+              <div className="flex items-center gap-1 bg-cs-panel rounded-md p-0.5 w-fit">
+                {[1, 24].map((h) => (
+                  <button
+                    key={h}
+                    onClick={() => setForecastWindow(h as 1 | 24)}
+                    className={`text-[9px] px-2 py-1 rounded transition-colors ${
+                      forecastWindow === h
+                        ? "bg-cs-dark text-gray-200"
+                        : "text-gray-500 hover:text-gray-300"
+                    }`}
+                  >
+                    {h}h Forecast
+                  </button>
+                ))}
+              </div>
+
+              {forecastLoading ? (
+                <div className="text-[10px] text-gray-600 mt-2">
+                  Loading forecast…
+                </div>
+              ) : selectedForecast ? (
+                <div className="mt-2 rounded-md border border-cs-border/60 bg-cs-panel p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+                      Strict Verified Prediction
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-semibold ${
+                        selectedForecast.direction === "up"
+                          ? "text-green-400"
+                          : selectedForecast.direction === "down"
+                            ? "text-red-400"
+                            : "text-yellow-300"
+                      }`}
+                    >
+                      {selectedForecast.direction === "up"
+                        ? "▲ Up"
+                        : selectedForecast.direction === "down"
+                          ? "▼ Down"
+                          : "→ Neutral"}{" "}
+                      ({selectedForecast.confidencePercent.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-gray-300 font-mono">
+                    ${selectedForecast.predictedPrice.toFixed(2)}
+                    <span className="text-gray-500">
+                      {" "}
+                      expected in {selectedForecast.windowHours}h
+                    </span>
+                  </div>
+                  <div className="text-[9px] text-gray-600 mt-1">
+                    Range: ${selectedForecast.priceRangeMin.toFixed(2)} - $
+                    {selectedForecast.priceRangeMax.toFixed(2)}
+                    {" · "}
+                    Verified events: {selectedForecast.verifiedEventCount}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[10px] text-gray-600 mt-2">
+                  Forecast unavailable until enough verified events and price
+                  points are collected.
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -491,6 +646,22 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
                         <span className="text-[9px] border border-cs-border px-1.5 py-0.5 rounded text-gray-500">
                           {TRIGGER_LABELS[item.triggerType] ??
                             item.triggerType.replace(/_/g, " ")}
+                        </span>
+                      )}
+                      {item.hasTrustedSource && (
+                        <span className="text-[9px] border border-green-900/50 bg-green-950/30 px-1.5 py-0.5 rounded text-green-400">
+                          Verified Source
+                        </span>
+                      )}
+                      <span className="text-[9px] border border-cs-border px-1.5 py-0.5 rounded text-gray-500">
+                        {item.sourceCount} source
+                        {item.sourceCount === 1 ? "" : "s"}
+                      </span>
+                      {item.eventConfidence && (
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded border ${CONFIDENCE_STYLES[item.eventConfidence].bg} ${CONFIDENCE_STYLES[item.eventConfidence].text} ${CONFIDENCE_STYLES[item.eventConfidence].border}`}
+                        >
+                          Event {item.eventConfidence}
                         </span>
                       )}
                       {item.leaderName && (
