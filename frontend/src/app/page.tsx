@@ -225,9 +225,20 @@ export default function DashboardPage() {
               </svg>
             </div>
           </div>
-          <span className="text-sm font-bold tracking-wider text-gray-100">
-            CONFLICT<span className="text-cs-accent">SCOPE</span>
-          </span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-bold tracking-wider text-gray-100">
+              CONFLICT<span className="text-cs-accent">SCOPE</span>
+            </span>
+            <a
+              href="https://github.com/anshxpress"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[10px] text-gray-500 transition opacity-0 hover:opacity-100"
+              aria-label="Open GitHub profile"
+            >
+              @xa
+            </a>
+          </div>
         </div>
 
         <div className="h-4 w-px bg-cs-border" />
