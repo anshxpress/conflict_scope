@@ -299,13 +299,19 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
 
   // Deduplicate insights by eventId: keep the one with highest impactScore per event
   const deduplicatedInsights = useMemo(() => {
-    const grouped = allInsights.reduce((acc, insight) => {
-      const key = insight.eventId;
-      if (!acc[key] || (insight.impactScore ?? 0) > (acc[key].impactScore ?? 0)) {
-        acc[key] = insight;
-      }
-      return acc;
-    }, {} as Record<string, typeof allInsights[0]>);
+    const grouped = allInsights.reduce(
+      (acc, insight) => {
+        const key = insight.eventId;
+        if (
+          !acc[key] ||
+          (insight.impactScore ?? 0) > (acc[key].impactScore ?? 0)
+        ) {
+          acc[key] = insight;
+        }
+        return acc;
+      },
+      {} as Record<string, (typeof allInsights)[0]>,
+    );
     return Object.values(grouped);
   }, [allInsights]);
 
