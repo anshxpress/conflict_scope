@@ -296,11 +296,24 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
   const allInsights = (insightsData?.insights ?? []).filter(
     (i) => i.isStrictlyVerified,
   );
+
+  // Deduplicate insights by eventId: keep the one with highest impactScore per event
+  const deduplicatedInsights = useMemo(() => {
+    const grouped = allInsights.reduce((acc, insight) => {
+      const key = insight.eventId;
+      if (!acc[key] || (insight.impactScore ?? 0) > (acc[key].impactScore ?? 0)) {
+        acc[key] = insight;
+      }
+      return acc;
+    }, {} as Record<string, typeof allInsights[0]>);
+    return Object.values(grouped);
+  }, [allInsights]);
+
   // Apply optional windowHours filter from the tab picker
   const insights =
     windowFilter === 0
-      ? allInsights
-      : allInsights.filter((i) => i.windowHours === windowFilter);
+      ? deduplicatedInsights
+      : deduplicatedInsights.filter((i) => i.windowHours === windowFilter);
   const alerts = alertsData ?? [];
   const selectedForecast =
     forecastData?.horizons.find((h) => h.windowHours === forecastWindow) ??
