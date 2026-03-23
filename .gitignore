@@ -14,6 +14,9 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.local.*
+# Ignore frontend local env specifically (keeps example committed)
+frontend/.env.local
 
 # Logs
 *.log
