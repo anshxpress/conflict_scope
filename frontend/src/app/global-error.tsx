@@ -7,9 +7,13 @@ export default function GlobalError({ error }: { error: Error }) {
   return (
     <html>
       <body>
-        <div style={{ padding: 24, fontFamily: "Inter, system-ui, sans-serif" }}>
+        <div
+          style={{ padding: 24, fontFamily: "Inter, system-ui, sans-serif" }}
+        >
           <h1>Something went wrong</h1>
-          <pre style={{ whiteSpace: "pre-wrap" }}>{String(error?.message ?? "")}</pre>
+          <pre style={{ whiteSpace: "pre-wrap" }}>
+            {String(error?.message ?? "")}
+          </pre>
         </div>
       </body>
     </html>
