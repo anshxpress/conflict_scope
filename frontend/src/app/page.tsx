@@ -42,6 +42,11 @@ const MapView = dynamic(() => import("@/components/map/MapView"), {
   ),
 });
 
+const WarMediaPanel = dynamic(
+  () => import("@/components/media/WarMediaPanel"),
+  { ssr: false },
+);
+
 const TimelineSlider = dynamic(
   () => import("@/components/timeline/TimelineSlider"),
   {
@@ -89,6 +94,7 @@ export default function DashboardPage() {
   );
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [warPanelOpen, setWarPanelOpen] = useState(false);
   // Selected commodity opens right panel with full analysis
   const [selectedCommodity, setSelectedCommodity] =
     useState<CommodityName | null>(null);
@@ -251,6 +257,35 @@ export default function DashboardPage() {
         <div className="ml-auto flex items-center gap-3">
           <UpdatesPanel />
           <NotificationBell />
+          {/* TV toggle */}
+          <button
+            onClick={() => setWarPanelOpen((v) => !v)}
+            title="Open War Media TV"
+            className="p-1 rounded hover:bg-cs-border/40"
+          >
+            <svg
+              className="w-5 h-5 text-gray-300"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <rect
+                x="3"
+                y="6"
+                width="18"
+                height="12"
+                rx="2"
+                stroke="currentColor"
+                strokeWidth="1.2"
+              />
+              <path
+                d="M8 3l4 4 4-4"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
           <div className="h-4 w-px bg-cs-border" />
           <div className="flex items-center gap-1.5">
             <span className="relative flex h-1.5 w-1.5">
@@ -277,6 +312,12 @@ export default function DashboardPage() {
           )}
         </div>
       </header>
+
+      {/* War Media Panel overlay */}
+      <WarMediaPanel
+        open={warPanelOpen}
+        onClose={() => setWarPanelOpen(false)}
+      />
 
       {/* â”€â”€ Main Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="relative flex flex-1 overflow-hidden">
