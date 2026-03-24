@@ -275,7 +275,7 @@ export default function WarMediaPanel({
         <div className="flex items-center gap-3">
           <div className="text-sm font-semibold">📺 War Media TV</div>
           <div className="flex items-center gap-2">
-            {/* <span className="text-xs text-gray-500">Last:</span>
+            <span className="text-xs text-gray-500">Last:</span>
             <select
               value={selectedHours}
               onChange={(e) => setSelectedHours(parseInt(e.target.value, 10))}
@@ -286,7 +286,7 @@ export default function WarMediaPanel({
               <option value={24}>24h</option>
               <option value={48}>48h</option>
               <option value={72}>72h</option>
-            </select> */}
+            </select>
           </div>
         </div>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
