@@ -65,7 +65,9 @@ function hasMinConfidence(c: ConfidenceLevel | null): boolean {
   return c === "medium" || c === "high";
 }
 
-function confidenceFromRank(rank: number | null | undefined): ConfidenceLevel | null {
+function confidenceFromRank(
+  rank: number | null | undefined,
+): ConfidenceLevel | null {
   if (rank === 3) return "high";
   if (rank === 2) return "medium";
   if (rank === 1) return "low";
@@ -88,7 +90,10 @@ export async function computeCommodityForecast(params: {
   commodity: CommodityName;
   historyHours?: number;
 }): Promise<CommodityForecastResponse | null> {
-  const historyHours = Math.max(24, Math.min(params.historyHours ?? 24 * 7, 24 * 30));
+  const historyHours = Math.max(
+    24,
+    Math.min(params.historyHours ?? 24 * 7, 24 * 30),
+  );
   const since = new Date(Date.now() - historyHours * 60 * 60 * 1000);
 
   const priceRows = await db
@@ -100,8 +105,8 @@ export async function computeCommodityForecast(params: {
     .where(
       and(
         eq(schema.commodities.commodity, params.commodity),
-        gte(schema.commodities.timestamp, since)
-      )
+        gte(schema.commodities.timestamp, since),
+      ),
     )
     .orderBy(schema.commodities.timestamp);
 
@@ -113,20 +118,27 @@ export async function computeCommodityForecast(params: {
 
   const returns = priceValues
     .slice(1)
-    .map((v, i) => (priceValues[i] === 0 ? 0 : ((v - priceValues[i]) / priceValues[i]) * 100));
+    .map((v, i) =>
+      priceValues[i] === 0 ? 0 : ((v - priceValues[i]) / priceValues[i]) * 100,
+    );
   const volatilityPct = stddev(returns);
 
   const avgStepMinutes =
     mean(
       priceRows
         .slice(1)
-        .map((r, i) => (r.timestamp.getTime() - priceRows[i].timestamp.getTime()) / 60000)
-        .filter((m) => Number.isFinite(m) && m > 0)
+        .map(
+          (r, i) =>
+            (r.timestamp.getTime() - priceRows[i].timestamp.getTime()) / 60000,
+        )
+        .filter((m) => Number.isFinite(m) && m > 0),
     ) || 60;
 
   const slopePerStep = linearSlope(priceValues);
   const trendPctPerHour =
-    latestPrice === 0 ? 0 : ((slopePerStep / latestPrice) * 100 * 60) / avgStepMinutes;
+    latestPrice === 0
+      ? 0
+      : ((slopePerStep / latestPrice) * 100 * 60) / avgStepMinutes;
 
   const correlationsSince = new Date(Date.now() - 72 * 60 * 60 * 1000);
   const corrRows = await db
@@ -139,12 +151,15 @@ export async function computeCommodityForecast(params: {
       eventConfidence: schema.events.confidenceScore,
     })
     .from(schema.commodityCorrelations)
-    .innerJoin(schema.events, eq(schema.events.id, schema.commodityCorrelations.eventId))
+    .innerJoin(
+      schema.events,
+      eq(schema.events.id, schema.commodityCorrelations.eventId),
+    )
     .where(
       and(
         eq(schema.commodityCorrelations.commodity, params.commodity),
-        gte(schema.commodityCorrelations.computedAt, correlationsSince)
-      )
+        gte(schema.commodityCorrelations.computedAt, correlationsSince),
+      ),
     )
     .orderBy(desc(schema.commodityCorrelations.computedAt))
     .limit(200);
@@ -188,13 +203,16 @@ export async function computeCommodityForecast(params: {
       .where(
         and(
           eq(schema.eventCommodityRefs.commodity, params.commodity),
-          inArray(schema.eventCommodityRefs.eventId, eventIds)
-        )
+          inArray(schema.eventCommodityRefs.eventId, eventIds),
+        ),
       )
       .groupBy(schema.eventCommodityRefs.eventId);
 
     for (const row of refRows) {
-      refConfidenceByEvent.set(row.eventId, confidenceFromRank(row.confidenceRank));
+      refConfidenceByEvent.set(
+        row.eventId,
+        confidenceFromRank(row.confidenceRank),
+      );
     }
   }
 
@@ -207,7 +225,7 @@ export async function computeCommodityForecast(params: {
           eventConfidence: row.eventConfidence,
           referenceConfidence: refConfidenceByEvent.get(row.eventId) ?? null,
           hasTrustedSource: trustedByEvent.get(row.eventId) === true,
-        })
+        }),
     );
 
     const weightedEventSignal = (() => {
@@ -217,7 +235,8 @@ export async function computeCommodityForecast(params: {
 
       for (const row of verifiedRows) {
         const ageHours =
-          (Date.now() - new Date(row.eventTimestamp).getTime()) / (60 * 60 * 1000);
+          (Date.now() - new Date(row.eventTimestamp).getTime()) /
+          (60 * 60 * 1000);
         const recencyWeight = Math.exp(-Math.max(0, ageHours) / 24);
         const impactWeight = clamp((row.impactScore ?? 35) / 100, 0.1, 1.2);
         const weight = recencyWeight * impactWeight;
@@ -231,19 +250,23 @@ export async function computeCommodityForecast(params: {
     const trendComponent = trendPctPerHour * windowHours;
     const predictedChangePercent = roundTo(
       weightedEventSignal * 0.7 + trendComponent * 0.3,
-      3
+      3,
     );
-    const predictedPrice = roundTo(latestPrice * (1 + predictedChangePercent / 100), 4);
+    const predictedPrice = roundTo(
+      latestPrice * (1 + predictedChangePercent / 100),
+      4,
+    );
 
     const rangeHalfPct = Math.max(
       0.2,
       Math.abs(predictedChangePercent) * 0.35,
-      volatilityPct * Math.sqrt(windowHours)
+      volatilityPct * Math.sqrt(windowHours),
     );
 
     const confidencePercent = (() => {
       if (verifiedRows.length === 0) {
-        const baseNoNews = 30 + Math.abs(trendComponent) * 8 - volatilityPct * 5;
+        const baseNoNews =
+          30 + Math.abs(trendComponent) * 8 - volatilityPct * 5;
         return roundTo(clamp(baseNoNews, 18, 55), 1);
       }
       const base =

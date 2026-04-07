@@ -9,7 +9,7 @@ import {
 import { toCommodityForecastApiResponse } from "./contracts/commodity-forecast";
 
 function confidenceFromRank(
-  rank: number | null | undefined
+  rank: number | null | undefined,
 ): "low" | "medium" | "high" | null {
   if (rank === 3) return "high";
   if (rank === 2) return "medium";
@@ -20,11 +20,14 @@ function confidenceFromRank(
 /** Fetch USD→INR rate from frankfurter.app (free, no API key). */
 async function fetchUsdToInr(): Promise<number> {
   try {
-    const res = await fetch("https://api.frankfurter.app/latest?from=USD&to=INR", {
-      signal: AbortSignal.timeout(5000),
-    });
+    const res = await fetch(
+      "https://api.frankfurter.app/latest?from=USD&to=INR",
+      {
+        signal: AbortSignal.timeout(5000),
+      },
+    );
     if (!res.ok) return 83.5; // reasonable fallback
-    const json = await res.json() as { rates?: { INR?: number } };
+    const json = (await res.json()) as { rates?: { INR?: number } };
     return json?.rates?.INR ?? 83.5;
   } catch {
     return 83.5;
@@ -41,7 +44,12 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
     const commodities = ["gold", "silver", "oil"] as const;
     const result: Record<
       string,
-      { price: number; currency: string; timestamp: string; source: string } | null
+      {
+        price: number;
+        currency: string;
+        timestamp: string;
+        source: string;
+      } | null
     > = {};
 
     for (const commodity of commodities) {
@@ -95,7 +103,10 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
       .select()
       .from(schema.resources)
       .where(eq(schema.resources.country, decodeURIComponent(params.country)));
-    return { country: decodeURIComponent(params.country), resources: rows.map((r) => r.resource) };
+    return {
+      country: decodeURIComponent(params.country),
+      resources: rows.map((r) => r.resource),
+    };
   })
 
   /**
@@ -108,7 +119,10 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
       return { error: "Unsupported commodity" };
     }
 
-    const hours = Math.max(1, Math.min(parseInt(query.hours ?? "168", 10), 24 * 90));
+    const hours = Math.max(
+      1,
+      Math.min(parseInt(query.hours ?? "168", 10), 24 * 90),
+    );
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
 
     const rows = await db
@@ -121,8 +135,8 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
       .where(
         and(
           eq(schema.commodities.commodity, commodity),
-          gte(schema.commodities.timestamp, since)
-        )
+          gte(schema.commodities.timestamp, since),
+        ),
       )
       .orderBy(schema.commodities.timestamp);
 
@@ -146,7 +160,10 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
       return { error: "Unsupported commodity" };
     }
 
-    const hours = Math.max(1, Math.min(parseInt(query.hours ?? "168", 10), 24 * 30));
+    const hours = Math.max(
+      1,
+      Math.min(parseInt(query.hours ?? "168", 10), 24 * 30),
+    );
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
 
     const rows = await db
@@ -166,18 +183,24 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
         eventConfidence: schema.events.confidenceScore,
       })
       .from(schema.commodityCorrelations)
-      .innerJoin(schema.events, eq(schema.events.id, schema.commodityCorrelations.eventId))
+      .innerJoin(
+        schema.events,
+        eq(schema.events.id, schema.commodityCorrelations.eventId),
+      )
       .where(
         and(
           eq(schema.commodityCorrelations.commodity, commodity),
-          gte(schema.commodityCorrelations.computedAt, since)
-        )
+          gte(schema.commodityCorrelations.computedAt, since),
+        ),
       )
       .orderBy(desc(schema.commodityCorrelations.impactScore))
       .limit(100);
 
     const eventIds = [...new Set(rows.map((r) => r.eventId))];
-    const sourcesByEvent = new Map<string, { sourceCount: number; hasTrustedSource: boolean }>();
+    const sourcesByEvent = new Map<
+      string,
+      { sourceCount: number; hasTrustedSource: boolean }
+    >();
     const refsByEvent = new Map<
       string,
       {
@@ -234,7 +257,10 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
           )::int as "confidenceRank"
         from event_commodity_refs
         where commodity = ${commodity}
-          and event_id in (${sql.join(eventIds.map((id) => sql`${id}`), sql`, `)})
+          and event_id in (${sql.join(
+            eventIds.map((id) => sql`${id}`),
+            sql`, `,
+          )})
         order by
           event_id,
           (
@@ -318,8 +344,14 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
       return { error: "Unsupported commodity" };
     }
 
-    const hours = Math.max(24, Math.min(parseInt(query.hours ?? "168", 10), 24 * 30));
-    const forecast = await computeCommodityForecast({ commodity, historyHours: hours });
+    const hours = Math.max(
+      24,
+      Math.min(parseInt(query.hours ?? "168", 10), 24 * 30),
+    );
+    const forecast = await computeCommodityForecast({
+      commodity,
+      historyHours: hours,
+    });
 
     return toCommodityForecastApiResponse({ commodity, forecast });
   })
@@ -336,7 +368,7 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
       .select()
       .from(schema.commodityAlerts)
       .where(
-        commodity ? eq(schema.commodityAlerts.commodity, commodity) : undefined
+        commodity ? eq(schema.commodityAlerts.commodity, commodity) : undefined,
       )
       .orderBy(desc(schema.commodityAlerts.createdAt))
       .limit(limit);
@@ -386,7 +418,7 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
         secret: t.Optional(t.String()),
         enabled: t.Optional(t.Boolean()),
       }),
-    }
+    },
   )
 
   /**
@@ -431,7 +463,9 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(hook.secret ? { "x-conflictscope-signature": hook.secret } : {}),
+            ...(hook.secret
+              ? { "x-conflictscope-signature": hook.secret }
+              : {}),
           },
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(5000),
@@ -474,7 +508,10 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
         eventTitle: schema.events.title,
       })
       .from(schema.commodityCorrelations)
-      .innerJoin(schema.events, eq(schema.events.id, schema.commodityCorrelations.eventId))
+      .innerJoin(
+        schema.events,
+        eq(schema.events.id, schema.commodityCorrelations.eventId),
+      )
       .orderBy(desc(schema.commodityCorrelations.impactScore))
       .limit(9);
 

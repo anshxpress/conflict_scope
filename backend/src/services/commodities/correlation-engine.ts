@@ -23,9 +23,14 @@ function roundTo(value: number, decimals: number): number {
   return Math.round(value * p) / p;
 }
 
-function computeSeverityFactor(impacts: Array<{ severity: ImpactSeverity }>): number {
+function computeSeverityFactor(
+  impacts: Array<{ severity: ImpactSeverity }>,
+): number {
   if (impacts.length === 0) return 1;
-  const total = impacts.reduce((acc, i) => acc + SEVERITY_WEIGHTS[i.severity], 0);
+  const total = impacts.reduce(
+    (acc, i) => acc + SEVERITY_WEIGHTS[i.severity],
+    0,
+  );
   return total / impacts.length;
 }
 
@@ -36,7 +41,8 @@ function computeImpactScore(params: {
 }): { score: number; priceChangeFactor: number; marketReaction: number } {
   const marketReaction = Math.abs(params.priceChangePercent);
   const priceChangeFactor = Math.min(10, 1 + marketReaction / 2);
-  const raw = params.severityFactor * params.commodityWeight * priceChangeFactor;
+  const raw =
+    params.severityFactor * params.commodityWeight * priceChangeFactor;
   const score = Math.min(100, roundTo(raw * 8, 2));
   return { score, priceChangeFactor, marketReaction };
 }
@@ -44,7 +50,7 @@ function computeImpactScore(params: {
 async function findPriceBefore(
   commodity: CommodityName,
   eventTs: Date,
-  windowHours: number
+  windowHours: number,
 ) {
   const floor = new Date(eventTs.getTime() - windowHours * 60 * 60 * 1000);
   const [row] = await db
@@ -54,8 +60,8 @@ async function findPriceBefore(
       and(
         eq(schema.commodities.commodity, commodity),
         lte(schema.commodities.timestamp, eventTs),
-        gte(schema.commodities.timestamp, floor)
-      )
+        gte(schema.commodities.timestamp, floor),
+      ),
     )
     .orderBy(desc(schema.commodities.timestamp))
     .limit(1);
@@ -65,7 +71,7 @@ async function findPriceBefore(
 async function findPriceAfter(
   commodity: CommodityName,
   eventTs: Date,
-  windowHours: number
+  windowHours: number,
 ) {
   const ceil = new Date(eventTs.getTime() + windowHours * 60 * 60 * 1000);
   const [row] = await db
@@ -75,8 +81,8 @@ async function findPriceAfter(
       and(
         eq(schema.commodities.commodity, commodity),
         gte(schema.commodities.timestamp, eventTs),
-        lte(schema.commodities.timestamp, ceil)
-      )
+        lte(schema.commodities.timestamp, ceil),
+      ),
     )
     .orderBy(asc(schema.commodities.timestamp))
     .limit(1);
@@ -95,7 +101,8 @@ async function createAlertIfNeeded(params: {
   if (Math.abs(pct) < 2 && params.impactScore < 60) return;
 
   const direction = pct >= 0 ? "spike" : "drop";
-  const level = params.impactScore >= 75 || Math.abs(pct) >= 4 ? "critical" : "warning";
+  const level =
+    params.impactScore >= 75 || Math.abs(pct) >= 4 ? "critical" : "warning";
   const title = `${params.commodity.toUpperCase()} ${params.windowHours}h market movement alert`;
 
   const [existingAlert] = await db
@@ -105,8 +112,8 @@ async function createAlertIfNeeded(params: {
       and(
         eq(schema.commodityAlerts.eventId, params.eventId),
         eq(schema.commodityAlerts.commodity, params.commodity),
-        eq(schema.commodityAlerts.title, title)
-      )
+        eq(schema.commodityAlerts.title, title),
+      ),
     )
     .limit(1);
 
@@ -143,7 +150,8 @@ export async function computeCommodityCorrelations(input: {
       if (!before || !after) continue;
 
       const absoluteChange = after.price - before.price;
-      const percentChange = before.price === 0 ? 0 : (absoluteChange / before.price) * 100;
+      const percentChange =
+        before.price === 0 ? 0 : (absoluteChange / before.price) * 100;
       const commodityWeight = COMMODITY_WEIGHTS[match.commodity];
       const score = computeImpactScore({
         severityFactor,
@@ -198,7 +206,7 @@ export async function computeCommodityCorrelations(input: {
         triggerType: match.triggerType,
         priceChangePercent: percentChange,
         impactScore: score.score,
-       });
-     }
-   }
- }
+      });
+    }
+  }
+}
