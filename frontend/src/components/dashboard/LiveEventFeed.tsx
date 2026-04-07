@@ -9,12 +9,16 @@ interface LiveEventFeedProps {
   events: ConflictEvent[];
   onEventSelect: (event: ConflictEvent) => void;
   selectedEventId: string | null;
+  onRefresh?: () => unknown;
+  isRefreshing?: boolean;
 }
 
 const LiveEventFeed: FC<LiveEventFeedProps> = ({
   events,
   onEventSelect,
   selectedEventId,
+  onRefresh,
+  isRefreshing = false,
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -39,7 +43,45 @@ const LiveEventFeed: FC<LiveEventFeedProps> = ({
           </span>
           Live Feed
         </h3>
-        <span className="text-xs text-gray-600">{events.length} events</span>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (onRefresh) void onRefresh();
+            }}
+            disabled={!onRefresh || isRefreshing}
+            className="inline-flex h-6 w-6 items-center justify-center rounded border border-cs-border text-gray-400 transition-colors hover:border-gray-500 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Refresh live feed"
+            title="Refresh live feed"
+          >
+            <svg
+              className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M20 12a8 8 0 1 1-2.34-5.66"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <path
+                d="M20 4v6h-6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="sr-only">
+              {isRefreshing ? "Refreshing live feed" : "Refresh live feed"}
+            </span>
+          </button>
+          <span className="text-xs text-gray-600">{events.length} events</span>
+        </div>
       </div>
 
       {/* Feed list */}

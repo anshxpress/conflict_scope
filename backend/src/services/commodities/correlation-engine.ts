@@ -86,6 +86,7 @@ async function findPriceAfter(
 async function createAlertIfNeeded(params: {
   eventId: string;
   commodity: CommodityName;
+  windowHours: number;
   triggerType: string;
   priceChangePercent: number;
   impactScore: number;
@@ -95,12 +96,27 @@ async function createAlertIfNeeded(params: {
 
   const direction = pct >= 0 ? "spike" : "drop";
   const level = params.impactScore >= 75 || Math.abs(pct) >= 4 ? "critical" : "warning";
+  const title = `${params.commodity.toUpperCase()} ${params.windowHours}h market movement alert`;
+
+  const [existingAlert] = await db
+    .select({ id: schema.commodityAlerts.id })
+    .from(schema.commodityAlerts)
+    .where(
+      and(
+        eq(schema.commodityAlerts.eventId, params.eventId),
+        eq(schema.commodityAlerts.commodity, params.commodity),
+        eq(schema.commodityAlerts.title, title)
+      )
+    )
+    .limit(1);
+
+  if (existingAlert) return;
 
   await db.insert(schema.commodityAlerts).values({
     eventId: params.eventId,
     commodity: params.commodity,
-    title: `${params.commodity.toUpperCase()} price ${direction} detected`,
-    cause: `${params.triggerType.replace(/_/g, " ")} caused ${pct}% movement`,
+    title,
+    cause: `${params.triggerType.replace(/_/g, " ")} (${params.windowHours}h) caused ${direction} of ${pct}%`,
     level,
     priceChangePercent: pct,
     impactScore: params.impactScore,
@@ -178,6 +194,7 @@ export async function computeCommodityCorrelations(input: {
       await createAlertIfNeeded({
         eventId: input.eventId,
         commodity: match.commodity,
+        windowHours,
         triggerType: match.triggerType,
         priceChangePercent: percentChange,
         impactScore: score.score,

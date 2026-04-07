@@ -111,7 +111,11 @@ export default function DashboardPage() {
     return p;
   }, [selectedCountry, selectedType, selectedConfidence, timeRange]);
 
-  const { data: eventsData } = useEvents(filterParams);
+  const {
+    data: eventsData,
+    mutate: refreshEvents,
+    isValidating: isRefreshingEvents,
+  } = useEvents(filterParams);
   const { data: infraData } = useInfrastructure(
     showInfrastructure ? {} : undefined,
   );
@@ -351,6 +355,8 @@ export default function DashboardPage() {
                 events={events}
                 onEventSelect={handleEventSelect}
                 selectedEventId={selectedEvent?.id ?? null}
+                onRefresh={refreshEvents}
+                isRefreshing={isRefreshingEvents}
               />
             )}
 

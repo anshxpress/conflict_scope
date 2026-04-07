@@ -8,6 +8,15 @@ import {
 } from "../../services/commodities/forecast-engine";
 import { toCommodityForecastApiResponse } from "./contracts/commodity-forecast";
 
+function confidenceFromRank(
+  rank: number | null | undefined
+): "low" | "medium" | "high" | null {
+  if (rank === 3) return "high";
+  if (rank === 2) return "medium";
+  if (rank === 1) return "low";
+  return null;
+}
+
 /** Fetch USD→INR rate from frankfurter.app (free, no API key). */
 async function fetchUsdToInr(): Promise<number> {
   try {
@@ -151,11 +160,6 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
         absoluteChange: schema.commodityCorrelations.absoluteChange,
         percentChange: schema.commodityCorrelations.percentChange,
         impactScore: schema.commodityCorrelations.impactScore,
-        triggerType: schema.eventCommodityRefs.triggerType,
-        category: schema.eventCommodityRefs.category,
-        leaderName: schema.eventCommodityRefs.leaderName,
-        policyAction: schema.eventCommodityRefs.policyAction,
-        refConfidence: schema.eventCommodityRefs.confidenceScore,
         eventTitle: schema.events.title,
         country: schema.events.country,
         eventType: schema.events.eventType,
@@ -163,13 +167,6 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
       })
       .from(schema.commodityCorrelations)
       .innerJoin(schema.events, eq(schema.events.id, schema.commodityCorrelations.eventId))
-      .leftJoin(
-        schema.eventCommodityRefs,
-        and(
-          eq(schema.eventCommodityRefs.eventId, schema.commodityCorrelations.eventId),
-          eq(schema.eventCommodityRefs.commodity, schema.commodityCorrelations.commodity)
-        )
-      )
       .where(
         and(
           eq(schema.commodityCorrelations.commodity, commodity),
@@ -181,6 +178,16 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
 
     const eventIds = [...new Set(rows.map((r) => r.eventId))];
     const sourcesByEvent = new Map<string, { sourceCount: number; hasTrustedSource: boolean }>();
+    const refsByEvent = new Map<
+      string,
+      {
+        triggerType: string | null;
+        category: string | null;
+        leaderName: string | null;
+        policyAction: string | null;
+        referenceConfidence: "low" | "medium" | "high" | null;
+      }
+    >();
 
     if (eventIds.length > 0) {
       const sourceRows = await db
@@ -202,6 +209,54 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
         }
         sourcesByEvent.set(source.eventId, current);
       }
+
+      const refRows = await db.execute<{
+        eventId: string;
+        triggerType: string | null;
+        category: string | null;
+        leaderName: string | null;
+        policyAction: string | null;
+        confidenceRank: number;
+      }>(sql`
+        select distinct on (event_id)
+          event_id as "eventId",
+          trigger_type as "triggerType",
+          category as "category",
+          leader_name as "leaderName",
+          policy_action as "policyAction",
+          (
+            case confidence_score
+              when 'high' then 3
+              when 'medium' then 2
+              when 'low' then 1
+              else 0
+            end
+          )::int as "confidenceRank"
+        from event_commodity_refs
+        where commodity = ${commodity}
+          and event_id in (${sql.join(eventIds.map((id) => sql`${id}`), sql`, `)})
+        order by
+          event_id,
+          (
+            case confidence_score
+              when 'high' then 3
+              when 'medium' then 2
+              when 'low' then 1
+              else 0
+            end
+          ) desc,
+          created_at desc
+      `);
+
+      for (const row of refRows) {
+        refsByEvent.set(row.eventId, {
+          triggerType: row.triggerType,
+          category: row.category,
+          leaderName: row.leaderName,
+          policyAction: row.policyAction,
+          referenceConfidence: confidenceFromRank(row.confidenceRank),
+        });
+      }
     }
 
     return {
@@ -211,8 +266,15 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
           sourceCount: 0,
           hasTrustedSource: false,
         };
+        const ref = refsByEvent.get(r.eventId) ?? {
+          triggerType: null,
+          category: null,
+          leaderName: null,
+          policyAction: null,
+          referenceConfidence: null,
+        };
         const eventConfidence = r.eventConfidence;
-        const referenceConfidence = r.refConfidence;
+        const referenceConfidence = ref.referenceConfidence;
         const isStrictlyVerified = isStrictlyVerifiedSignal({
           eventConfidence,
           referenceConfidence,
@@ -225,10 +287,10 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
           eventTitle: r.eventTitle,
           eventType: r.eventType,
           country: r.country,
-          triggerType: r.triggerType,
-          category: r.category,
-          leaderName: r.leaderName,
-          policyAction: r.policyAction,
+          triggerType: ref.triggerType,
+          category: ref.category,
+          leaderName: ref.leaderName,
+          policyAction: ref.policyAction,
           windowHours: r.windowHours,
           eventTimestamp: r.eventTimestamp.toISOString(),
           priceBefore: r.priceBefore,

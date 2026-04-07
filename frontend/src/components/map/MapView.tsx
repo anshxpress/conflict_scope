@@ -88,6 +88,9 @@ const RISK_FILL: Record<string, string> = {
   green: "#22c55e",
 };
 
+const INITIAL_MAP_CENTER: L.LatLngExpression = [30, 20];
+const INITIAL_MAP_ZOOM = 3;
+
 function countryStyle(riskLevel: string | undefined): L.PathOptions {
   const fill = RISK_FILL[riskLevel ?? "green"] ?? RISK_FILL.green;
   return {
@@ -197,9 +200,9 @@ const MapView: FC<MapViewProps> = ({
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
-      center: [30, 20],
-      zoom: 3,
-      zoomControl: true,
+      center: INITIAL_MAP_CENTER,
+      zoom: INITIAL_MAP_ZOOM,
+      zoomControl: false,
       attributionControl: true,
       minZoom: 2,
       maxZoom: 18,
@@ -629,12 +632,27 @@ const MapView: FC<MapViewProps> = ({
     }
   }, [selectedEvent]);
 
+  const handleResetView = () => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    map.flyTo(INITIAL_MAP_CENTER, INITIAL_MAP_ZOOM, { duration: 1.1 });
+  };
+
   return (
-    <div
-      ref={mapContainerRef}
-      className="w-full h-full"
-      style={{ minHeight: "400px" }}
-    />
+    <div className="relative w-full h-full" style={{ minHeight: "400px" }}>
+      <div ref={mapContainerRef} className="w-full h-full" />
+
+      <button
+        type="button"
+        onClick={handleResetView}
+        className="absolute top-4 left-4 z-[1001] rounded-md border border-cs-border bg-cs-panel/90 px-3 py-1.5 text-xs font-medium text-gray-200 shadow-md backdrop-blur-sm transition-colors hover:border-gray-500 hover:text-white"
+        title="Reset map to full view"
+        aria-label="Reset map to full view"
+      >
+        Full View
+      </button>
+    </div>
   );
 };
 

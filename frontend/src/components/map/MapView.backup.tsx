@@ -12,6 +12,7 @@ import type {
   CountryResource,
 } from "@/types";
 import { EVENT_TYPE_COLORS, COMMODITY_ICONS } from "@/types";
+import MapView from "./MapView";
 
 // ... (full content of MapView.tsx, copied from previous reads, truncated here for brevity) 
 

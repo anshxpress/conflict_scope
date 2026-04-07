@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db, schema } from "../../../db";
 import type { CommodityName, ConfidenceLevel } from "../../../db/schema";
 import { isTrustedSource } from "../verification/confidence";
@@ -63,6 +63,13 @@ function linearSlope(values: number[]): number {
 
 function hasMinConfidence(c: ConfidenceLevel | null): boolean {
   return c === "medium" || c === "high";
+}
+
+function confidenceFromRank(rank: number | null | undefined): ConfidenceLevel | null {
+  if (rank === 3) return "high";
+  if (rank === 2) return "medium";
+  if (rank === 1) return "low";
+  return null;
 }
 
 export function isStrictlyVerifiedSignal(input: {
@@ -130,17 +137,9 @@ export async function computeCommodityForecast(params: {
       impactScore: schema.commodityCorrelations.impactScore,
       eventTimestamp: schema.commodityCorrelations.eventTimestamp,
       eventConfidence: schema.events.confidenceScore,
-      refConfidence: schema.eventCommodityRefs.confidenceScore,
     })
     .from(schema.commodityCorrelations)
     .innerJoin(schema.events, eq(schema.events.id, schema.commodityCorrelations.eventId))
-    .leftJoin(
-      schema.eventCommodityRefs,
-      and(
-        eq(schema.eventCommodityRefs.eventId, schema.commodityCorrelations.eventId),
-        eq(schema.eventCommodityRefs.commodity, schema.commodityCorrelations.commodity)
-      )
-    )
     .where(
       and(
         eq(schema.commodityCorrelations.commodity, params.commodity),
@@ -152,6 +151,7 @@ export async function computeCommodityForecast(params: {
 
   const eventIds = [...new Set(corrRows.map((r) => r.eventId))];
   const trustedByEvent = new Map<string, boolean>();
+  const refConfidenceByEvent = new Map<string, ConfidenceLevel | null>();
 
   if (eventIds.length > 0) {
     const sourceRows = await db
@@ -171,6 +171,31 @@ export async function computeCommodityForecast(params: {
         trustedByEvent.set(row.eventId, false);
       }
     }
+
+    const refRows = await db
+      .select({
+        eventId: schema.eventCommodityRefs.eventId,
+        confidenceRank: sql<number>`max(
+          case
+            when ${schema.eventCommodityRefs.confidenceScore} = 'high' then 3
+            when ${schema.eventCommodityRefs.confidenceScore} = 'medium' then 2
+            when ${schema.eventCommodityRefs.confidenceScore} = 'low' then 1
+            else 0
+          end
+        )::int`,
+      })
+      .from(schema.eventCommodityRefs)
+      .where(
+        and(
+          eq(schema.eventCommodityRefs.commodity, params.commodity),
+          inArray(schema.eventCommodityRefs.eventId, eventIds)
+        )
+      )
+      .groupBy(schema.eventCommodityRefs.eventId);
+
+    for (const row of refRows) {
+      refConfidenceByEvent.set(row.eventId, confidenceFromRank(row.confidenceRank));
+    }
   }
 
   const horizons: HorizonForecast[] = HORIZONS.map((windowHours) => {
@@ -180,7 +205,7 @@ export async function computeCommodityForecast(params: {
         row.percentChange != null &&
         isStrictlyVerifiedSignal({
           eventConfidence: row.eventConfidence,
-          referenceConfidence: row.refConfidence,
+          referenceConfidence: refConfidenceByEvent.get(row.eventId) ?? null,
           hasTrustedSource: trustedByEvent.get(row.eventId) === true,
         })
     );
