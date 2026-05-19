@@ -18,7 +18,7 @@ module.exports = {
         "cs-green": "#22c55e",
       },
       fontFamily: {
-        mono: ['"JetBrains Mono"', "monospace"],
+        mono: ["var(--font-mono)", "monospace"],
       },
     },
   },

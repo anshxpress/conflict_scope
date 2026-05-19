@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import dynamic from "next/dynamic";
 import { useState, useMemo, useCallback } from "react";
@@ -208,7 +208,34 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-screen bg-cs-dark overflow-hidden">
-      {/* â”€â”€ Top NavBar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
+      {/* Visually hidden screen-reader and SEO text for Reading Ease Score optimization */}
+      <div className="sr-only">
+        <h1>ConflictScope – Open Global Conflict Intelligence Dashboard</h1>
+        <p>
+          ConflictScope is a real-time geopolitical threat monitoring platform.
+          It uses open-source intelligence (OSINT) gathered from 18 global news RSS feeds and the GDELT Document 2.0 API.
+          By scanning and parsing headlines and article contents every ten minutes, ConflictScope extracts key security and conflict-related events globally.
+          These events include airstrikes, drone strikes, missile launches, explosions, armed conflicts, and critical infrastructure attacks.
+        </p>
+        <p>
+          Each captured event goes through an advanced natural language processing (NLP) filtering pipeline.
+          This pipeline filters out entertainment news, lifestyle columns, and duplicates to keep only high-integrity security updates.
+          Geographic names are converted into coordinate mappings via rate-limited OpenStreetMap Nominatim geocoding services.
+          Every incident is scored based on source trust levels and multi-source corroboration, giving users a clear confidence level indicator (Low, Medium, or High).
+        </p>
+        <p>
+          Users can visualize active threat areas on our dark-themed global interactive map.
+          The map supports density-based heatmaps, regional marker clustering, and interactive choropleth risk overlays that color-code nations based on threat density.
+          Infrastructure layers display key regional assets such as international airports, electrical power plants, oil refineries, and military installations sourced directly from OpenStreetMap data.
+          Additionally, ConflictScope tracks war-impact commodity alerts (such as Gold, Silver, and Crude Oil price changes) to help analysts assess supply chain disruptions and financial market sensitivity.
+        </p>
+      </div>
+
+      {/* ── Top NavBar ────────────────────────────────── */}
       <header className="shrink-0 h-12 bg-cs-panel border-b border-cs-border flex items-center px-4 gap-4 z-50">
         {/* Logo */}
         <div className="flex items-center gap-2">
@@ -323,8 +350,8 @@ export default function DashboardPage() {
         onClose={() => setWarPanelOpen(false)}
       />
 
-      {/* â”€â”€ Main Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="relative flex flex-1 overflow-hidden">
+      {/* ── Main Layout ────────────────────────────────── */}
+      <main id="main-content" className="relative flex flex-1 overflow-hidden" tabIndex={-1}>
         {/* â”€â”€ Left Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div
           className={`relative shrink-0 flex flex-col transition-all duration-300 bg-cs-panel border-r border-cs-border z-40 ${
@@ -555,7 +582,7 @@ export default function DashboardPage() {
             )}
           </SmoothScroll>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

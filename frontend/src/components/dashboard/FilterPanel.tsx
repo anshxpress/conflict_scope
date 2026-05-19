@@ -112,9 +112,10 @@ const FilterPanel: FC<FilterPanelProps> = ({
       <div className="space-y-3">
         {/* Country filter */}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Country</label>
+          <label htmlFor="country-search-input" className="text-xs text-gray-500 mb-1 block">Country</label>
           <div className="relative">
             <input
+              id="country-search-input"
               type="text"
               value={countryQuery}
               onChange={(e) => {
@@ -184,8 +185,9 @@ const FilterPanel: FC<FilterPanelProps> = ({
 
         {/* Event type filter */}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Event Type</label>
+          <label htmlFor="event-type-select" className="text-xs text-gray-500 mb-1 block">Event Type</label>
           <select
+            id="event-type-select"
             value={selectedType}
             onChange={(e) => onTypeChange(e.target.value)}
             className="w-full bg-cs-dark border border-cs-border text-gray-300 text-sm rounded px-2 py-1.5 focus:outline-none focus:border-cs-accent"
@@ -201,8 +203,9 @@ const FilterPanel: FC<FilterPanelProps> = ({
 
         {/* Confidence filter */}
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Confidence</label>
+          <label htmlFor="confidence-select" className="text-xs text-gray-500 mb-1 block">Confidence</label>
           <select
+            id="confidence-select"
             value={selectedConfidence}
             onChange={(e) => onConfidenceChange(e.target.value)}
             className="w-full bg-cs-dark border border-cs-border text-gray-300 text-sm rounded px-2 py-1.5 focus:outline-none focus:border-cs-accent"

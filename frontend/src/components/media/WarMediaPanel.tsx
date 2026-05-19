@@ -200,8 +200,11 @@ export default function WarMediaPanel({
                     v.thumbnail ||
                     `https://img.youtube.com/vi/${v.videoId}/hqdefault.jpg`
                   }
-                  alt="thumb"
+                  alt={v.title || "Video thumbnail"}
                   className="w-24 h-14 object-cover rounded"
+                  loading="lazy"
+                  decoding="async"
+                  fetchPriority="low"
                 />
                 {v.duration && (
                   <div className="absolute right-1 bottom-1 text-[10px] bg-black/70 text-white px-1 rounded">
@@ -275,8 +278,9 @@ export default function WarMediaPanel({
         <div className="flex items-center gap-3">
           <div className="text-sm font-semibold">📺 War Media TV</div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Last:</span>
+            <label htmlFor="media-hours-select" className="text-xs text-gray-500">Last:</label>
             <select
+              id="media-hours-select"
               value={selectedHours}
               onChange={(e) => setSelectedHours(parseInt(e.target.value, 10))}
               className="bg-cs-dark border border-cs-border text-gray-300 text-sm rounded px-2 py-1.5 focus:outline-none focus:border-cs-accent"
