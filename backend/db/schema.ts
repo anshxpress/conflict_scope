@@ -9,6 +9,7 @@ import {
   integer,
   index,
   uniqueIndex,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // ── Enums ──────────────────────────────────────────────
@@ -94,9 +95,19 @@ export const articles = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     title: varchar("title", { length: 512 }).notNull(),
     content: text("content"),
+    description: text("description"),
+    body: text("body"),
     source: varchar("source", { length: 256 }).notNull(),
     url: text("url").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    image: text("image"),
+    countries: text("countries").array(),
+    entities: text("entities").array(),
+    category: varchar("category", { length: 128 }),
+    language: varchar("language", { length: 64 }).notNull().default("en"),
+    duplicateCount: integer("duplicate_count").notNull().default(1),
+    sourceCount: integer("source_count").notNull().default(1),
+    titleHash: varchar("title_hash", { length: 256 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -105,6 +116,8 @@ export const articles = pgTable(
     urlIdx: uniqueIndex("articles_url_idx").on(table.url),
     sourceIdx: index("articles_source_idx").on(table.source),
     publishedIdx: index("articles_published_idx").on(table.publishedAt),
+    titleHashIdx: index("articles_title_hash_idx").on(table.titleHash),
+    categoryIdx: index("articles_category_idx").on(table.category),
   })
 );
 
@@ -348,8 +361,151 @@ export const commodityWebhooks = pgTable(
   })
 );
 
+// ── Raw Articles Table ───────────────────────────────────
+
+export const rawArticles = pgTable(
+  "raw_articles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    content: text("content"),
+    url: text("url").notNull(),
+    source: varchar("source", { length: 256 }).notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    urlIdx: uniqueIndex("raw_articles_url_idx").on(table.url),
+    publishedIdx: index("raw_articles_published_idx").on(table.publishedAt),
+  })
+);
+
+// ── Article Embeddings Table ─────────────────────────────
+
+export const articleEmbeddings = pgTable(
+  "article_embeddings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    embedding: doublePrecision("embedding").array().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    articleIdx: index("article_embeddings_article_idx").on(table.articleId),
+  })
+);
+
+// ── Countries Table ──────────────────────────────────────
+
+export const countries = pgTable(
+  "countries",
+  {
+    id: varchar("id", { length: 128 }).primaryKey(), // country name (e.g. India)
+    riskLevel: riskLevelEnum("risk_level").notNull().default("green"),
+    riskScore: doublePrecision("risk_score").notNull().default(0.0),
+    newsCount: integer("news_count").notNull().default(0),
+    lastUpdated: timestamp("last_updated", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  }
+);
+
+// ── Country Events Table ─────────────────────────────────
+
+export const countryEvents = pgTable(
+  "country_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    countryId: varchar("country_id", { length: 128 })
+      .notNull()
+      .references(() => countries.id, { onDelete: "cascade" }),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    category: varchar("category", { length: 128 }).notNull(),
+    severity: doublePrecision("severity").notNull().default(1.0),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    countryIdx: index("country_events_country_idx").on(table.countryId),
+    articleIdx: index("country_events_article_idx").on(table.articleId),
+    categoryIdx: index("country_events_category_idx").on(table.category),
+    publishedIdx: index("country_events_published_idx").on(table.publishedAt),
+  })
+);
+
+// ── Country Metrics Table ────────────────────────────────
+
+export const countryMetrics = pgTable(
+  "country_metrics",
+  {
+    country: varchar("country", { length: 128 }).primaryKey(),
+    score: doublePrecision("score").notNull().default(0.0),
+    articles: jsonb("articles").notNull().default([]),
+    categories: jsonb("categories").notNull().default({}),
+    commodities: jsonb("commodities").notNull().default([]),
+    videos: jsonb("videos").notNull().default([]),
+    timeline: jsonb("timeline").notNull().default([]),
+    lastUpdated: timestamp("last_updated", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  }
+);
+
+// ── Country Connections Table ─────────────────────────────
+
+export const countryConnections = pgTable(
+  "country_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceCountry: varchar("source_country", { length: 128 }).notNull(),
+    targetCountry: varchar("target_country", { length: 128 }).notNull(),
+    category: varchar("category", { length: 128 }).notNull(),
+    connectionScore: doublePrecision("connection_score").notNull().default(0.0),
+    eventCount: integer("event_count").notNull().default(0),
+    severity: doublePrecision("severity").notNull().default(1.0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    sourceIdx: index("country_conn_source_idx").on(table.sourceCountry),
+    targetIdx: index("country_conn_target_idx").on(table.targetCountry),
+    uniqueSourceTargetCategoryIdx: uniqueIndex("country_conn_uniq_idx").on(
+      table.sourceCountry,
+      table.targetCountry,
+      table.category
+    ),
+  })
+);
+
+
+// ── Source Budget Table (Quota Engine) ────────────────────
+
+export const sourceBudget = pgTable("source_budget", {
+  source: varchar("source", { length: 128 }).primaryKey(),
+  dailyLimit: integer("daily_limit").notNull(),
+  used: integer("used").notNull().default(0),
+  remaining: integer("remaining").notNull(),
+  cooldownUntil: timestamp("cooldown_until", { withTimezone: true }),
+  lastFetch: timestamp("last_fetch", { withTimezone: true }),
+  enabled: integer("enabled").notNull().default(1),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+});
+
 // ── Type exports for application use ───────────────────
 
+export type SourceBudget = typeof sourceBudget.$inferSelect;
+export type NewSourceBudget = typeof sourceBudget.$inferInsert;
 export type Article = typeof articles.$inferSelect;
 export type NewArticle = typeof articles.$inferInsert;
 export type Event = typeof events.$inferSelect;
@@ -384,3 +540,17 @@ export type RiskLevel = (typeof riskLevelEnum.enumValues)[number];
 export type GeoEventCategory = (typeof geoEventCategoryEnum.enumValues)[number];
 export type CommodityName = (typeof commodityNameEnum.enumValues)[number];
 export type AlertLevel = (typeof alertLevelEnum.enumValues)[number];
+
+export type RawArticle = typeof rawArticles.$inferSelect;
+export type NewRawArticle = typeof rawArticles.$inferInsert;
+export type ArticleEmbedding = typeof articleEmbeddings.$inferSelect;
+export type NewArticleEmbedding = typeof articleEmbeddings.$inferInsert;
+export type Country = typeof countries.$inferSelect;
+export type NewCountry = typeof countries.$inferInsert;
+export type CountryEvent = typeof countryEvents.$inferSelect;
+export type NewCountryEvent = typeof countryEvents.$inferInsert;
+export type CountryMetrics = typeof countryMetrics.$inferSelect;
+export type NewCountryMetrics = typeof countryMetrics.$inferInsert;
+export type CountryConnections = typeof countryConnections.$inferSelect;
+export type NewCountryConnections = typeof countryConnections.$inferInsert;
+

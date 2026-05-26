@@ -1,19 +1,17 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useRef, type FC } from "react";
-import L from "leaflet";
-import "leaflet.heat";
-import "leaflet.markercluster";
+import { useEffect, useRef, useState, useMemo, type FC } from "react";
 import type {
   ConflictEvent,
   InfrastructureItem,
-  EventType,
   RiskMap,
   CountryResource,
 } from "@/types";
-import { EVENT_TYPE_COLORS, COMMODITY_ICONS } from "@/types";
+import { EVENT_TYPE_COLORS } from "@/types";
+import { useCountryConnections } from "@/lib/hooks";
+import Globe from "react-globe.gl";
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Types ───────────────────────────────────────────────────────────────────
 
 interface MapViewProps {
   events: ConflictEvent[];
@@ -22,24 +20,17 @@ interface MapViewProps {
   showInfrastructure: boolean;
   selectedEvent: ConflictEvent | null;
   onEventSelect: (event: ConflictEvent) => void;
-  /** Country name â†’ "red" | "orange" | "green". Drives the choropleth layer. */
+  /** Country name → "red" | "orange" | "green". Drives the choropleth layer. */
   riskMap: RiskMap;
   /** Called when the user clicks a country polygon. Passes the DB country name. */
-  onCountrySelect: (
-    country: string,
-  ) => void; /** Resource data for icon markers on map. */
+  onCountrySelect: (country: string) => void;
+  selectedCountry: string | null;
+  /** Resource data for icon markers on map. */
   resources?: CountryResource[];
 }
 
-// â”€â”€ Country name normalisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-//
-// GeoJSON (Natural Earth) uses `ADMIN` names which occasionally differ from
-// the English names Nominatim stores in the database.  This lookup normalises
-// GeoJSON names â†’ DB names before matching against the riskMap keys.
-//
-// Maps GeoJSON ADMIN property values → DB country names where they differ.
-// Natural Earth 110m uses full English names in ADMIN, so most countries need
-// no mapping at all (pass-through).  Only the exceptions are listed here.
+// ── Country name normalisation ─────────────────────────────────────────────
+
 const GEO_TO_DB: Record<string, string> = {
   "United States of America": "United States",
   "United Republic of Tanzania": "Tanzania",
@@ -50,37 +41,55 @@ function resolveDbName(geoAdmin: string): string {
   return GEO_TO_DB[geoAdmin] ?? geoAdmin;
 }
 
-// ── Country centroids (lat/lng) for resource icon placement ──────────────────
-// Approximate geographic centres; only countries with tracked resources needed.
-const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
-  "Saudi Arabia": [24.0, 45.0],
-  Russia: [61.5, 90.0],
-  "United States": [38.0, -97.0],
-  Iraq: [33.0, 44.0],
-  Iran: [32.0, 53.0],
-  "United Arab Emirates": [24.0, 54.0],
-  Kuwait: [29.5, 47.7],
-  Venezuela: [8.0, -66.0],
-  Libya: [27.0, 17.0],
-  Nigeria: [10.0, 8.0],
-  Canada: [56.0, -96.0],
-  Kazakhstan: [48.0, 68.0],
-  China: [35.0, 103.0],
-  Australia: [-27.0, 133.0],
-  Ghana: [8.0, -1.0],
-  "South Africa": [-29.0, 25.0],
-  Peru: [-10.0, -76.0],
-  Indonesia: [-2.5, 117.0],
-  Uzbekistan: [41.0, 64.0],
-  Mexico: [23.6, -102.5],
-  Sudan: [15.0, 30.0],
-  Poland: [52.0, 20.0],
-  Bolivia: [-17.0, -65.0],
-  Chile: [-35.0, -71.0],
-  Argentina: [-35.0, -65.0],
-};
+// ── Country centroids (lat/lng) for centroid bubble placement ──────────────
 
-// â”€â”€ Choropleth styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
+  "India": [20.5937, 78.9629],
+  "Saudi Arabia": [23.8859, 45.0792],
+  "Russia": [61.5240, 105.3188],
+  "Ukraine": [48.3794, 31.1656],
+  "United States": [37.0902, -95.7129],
+  "China": [35.8617, 104.1954],
+  "Iran": [32.4279, 53.6880],
+  "Israel": [31.0461, 34.8516],
+  "Palestine": [31.9522, 35.2332],
+  "United Kingdom": [55.3781, -3.4360],
+  "Germany": [51.1657, 10.4515],
+  "France": [46.2276, 2.2137],
+  "Japan": [36.2048, 138.2529],
+  "Yemen": [15.5527, 48.5164],
+  "Syria": [34.8021, 38.9968],
+  "Sudan": [12.8628, 30.2176],
+  "Pakistan": [30.3753, 69.3451],
+  "Taiwan": [23.6978, 120.9605],
+  "Venezuela": [6.4238, -66.5897],
+  "Iraq": [33.2232, 43.6793],
+  "Canada": [56.0, -96.0],
+  "Australia": [-27.0, 133.0],
+  "Brazil": [-14.2350, -51.9250],
+  "South Africa": [-30.5595, 22.9375],
+  "Egypt": [26.8206, 30.8025],
+  "Turkey": [38.9637, 35.2433],
+  "South Korea": [35.9078, 127.7669],
+  "Mexico": [23.6345, -102.5528],
+  "Indonesia": [-0.7893, 113.9213],
+  "Nigeria": [9.0820, 8.6753],
+  "Argentina": [-38.4161, -63.6167],
+  "New Zealand": [-40.9006, 174.8860],
+  "Italy": [41.8719, 12.5674],
+  "Spain": [40.4637, -3.7492],
+  "Poland": [51.9194, 19.1451],
+  "Colombia": [4.5709, -74.2973],
+  "Philippines": [12.8797, 121.7740],
+  "Vietnam": [14.0583, 108.2772],
+  "Thailand": [15.8700, 100.9925],
+  "Libya": [26.3351, 17.2283],
+  "Lebanon": [33.8547, 35.8623],
+  "Jordan": [30.5852, 36.2384],
+  "Kenya": [-1.2921, 36.8219],
+  "Ethiopia": [9.1450, 40.4897],
+  "Afghanistan": [33.9391, 67.7100],
+};
 
 const RISK_FILL: Record<string, string> = {
   red: "#ef4444",
@@ -88,76 +97,20 @@ const RISK_FILL: Record<string, string> = {
   green: "#22c55e",
 };
 
-const INITIAL_MAP_CENTER: L.LatLngExpression = [30, 20];
-const INITIAL_MAP_ZOOM = 3;
+const CATEGORY_COLORS: Record<string, string> = {
+  Conflict: "#ef4444",
+  Commodity: "#eab308",
+  Trade: "#3b82f6",
+  Policy: "#f97316",
+  Technology: "#a855f7",
+  Health: "#22c55e",
+};
 
-function countryStyle(riskLevel: string | undefined): L.PathOptions {
-  const fill = RISK_FILL[riskLevel ?? "green"] ?? RISK_FILL.green;
-  return {
-    fillColor: fill,
-    fillOpacity: riskLevel && riskLevel !== "green" ? 0.45 : 0.08,
-    color: "#374151",
-    weight: 0.5,
-    opacity: 0.6,
-  };
-}
-
-// â”€â”€ Marker helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function createEventIcon(eventType: EventType, isRecent = false): L.DivIcon {
-  const color = EVENT_TYPE_COLORS[eventType] || "#ef4444";
-  // Recent events (< 3h) get an extra animated blinking ring
-  const blinkRing = isRecent
-    ? `<div style="
-        position:absolute;inset:-6px;
-        border-radius:50%;
-        border:2px solid ${color};
-        animation:recent-ping 1.2s cubic-bezier(0,0,0.2,1) infinite;
-        opacity:0;
-      "></div>`
-    : "";
-  return L.divIcon({
-    className: "custom-event-marker",
-    html: `
-      <div style="position:relative;width:24px;height:24px;">
-        ${blinkRing}
-        <div style="
-          position:absolute;inset:0;
-          border-radius:50%;
-          background:${color};
-          opacity:0.3;
-        " class="event-marker-pulse"></div>
-        <div style="
-          position:absolute;top:4px;left:4px;
-          width:16px;height:16px;
-          border-radius:50%;
-          background:${color};
-          border:2px solid rgba(255,255,255,0.8);
-          box-shadow:0 0 8px ${color};
-        "></div>
-      </div>
-    `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-  });
-}
-
-const infraIcon = L.divIcon({
-  className: "custom-infra-marker",
-  html: `
-    <div style="
-      width:12px;height:12px;
-      border-radius:50%;
-      background:#3b82f6;
-      border:2px solid rgba(255,255,255,0.6);
-      box-shadow:0 0 6px rgba(59,130,246,0.6);
-    "></div>
-  `,
-  iconSize: [12, 12],
-  iconAnchor: [6, 6],
-});
-
-// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const COMMODITY_ICONS: Record<string, string> = {
+  gold: "🟡",
+  silver: "⚪",
+  oil: "🛢",
+};
 
 const MapView: FC<MapViewProps> = ({
   events,
@@ -168,480 +121,390 @@ const MapView: FC<MapViewProps> = ({
   onEventSelect,
   riskMap,
   onCountrySelect,
+  selectedCountry,
   resources = [],
 }) => {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const geoJsonLayerRef = useRef<L.GeoJSON | null>(null);
-  const eventLayerRef = useRef<L.MarkerClusterGroup | null>(null);
-  const infraLayerRef = useRef<L.LayerGroup | null>(null);
-  const heatLayerRef = useRef<L.Layer | null>(null);
-  const resourceLayerRef = useRef<L.LayerGroup | null>(null);
+  const globeRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [geoJsonData, setGeoJsonData] = useState<any>(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
-  // Keep a ref to the latest riskMap so the GeoJSON style function always
-  // reads the current value without needing to recreate the layer.
-  const riskMapRef = useRef<RiskMap>(riskMap);
-
-  // Keep a ref to events so country hover callbacks (created once on mount)
-  // always read the latest events without recreating the GeoJSON layer.
-  const eventsRef = useRef<ConflictEvent[]>(events);
-  useEffect(() => {
-    eventsRef.current = events;
-  }, [events]);
-
-  // Shared hover popup — reused across all country hovers
-  const hoverPopupRef = useRef<L.Popup | null>(null);
-  // Timeout ref so mouseout doesn't instantly kill the popup when moving to it
-  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // â”€â”€ Map initialisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
-
-    const map = L.map(mapContainerRef.current, {
-      center: INITIAL_MAP_CENTER,
-      zoom: INITIAL_MAP_ZOOM,
-      zoomControl: false,
-      attributionControl: true,
-      minZoom: 2,
-      maxZoom: 18,
-      // Smooth zoom: fractional steps + easing
-      zoomSnap: 0.25,
-      zoomDelta: 0.25,
-      wheelDebounceTime: 80,
-      wheelPxPerZoomLevel: 120,
-      zoomAnimation: true,
-    });
-
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 19,
-      },
-    ).addTo(map);
-
-    mapRef.current = map;
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-      geoJsonLayerRef.current = null;
-    };
-  }, []);
-
-  // â”€â”€ GeoJSON countries choropleth layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+  // 1. Fetch GeoJSON for the country polygons choropleth layer
   useEffect(() => {
     fetch("/data/countries.geojson")
       .then((r) => r.json())
-      .then((geo) => {
-        const map = mapRef.current;
-        if (!map) return;
-
-        const layer = L.geoJSON(geo, {
-          style: (feature) => {
-            const admin: string = feature?.properties?.ADMIN ?? "";
-            const dbName = resolveDbName(admin);
-            const level = riskMapRef.current[dbName];
-            return countryStyle(level);
-          },
-          onEachFeature: (feature, featureLayer) => {
-            featureLayer.on({
-              click: () => {
-                const admin: string = feature?.properties?.ADMIN ?? "";
-                const dbName = resolveDbName(admin);
-                onCountrySelect(dbName);
-              },
-              mouseover: (e) => {
-                const l = e.target as L.Path;
-                l.setStyle({ weight: 1.5, color: "#9ca3af", fillOpacity: 0.6 });
-
-                const admin: string = feature?.properties?.ADMIN ?? "";
-                const dbName = resolveDbName(admin);
-                const map = mapRef.current;
-                if (!map) return;
-
-                // Up to 5 most recent events for this country
-                const countryEvents = eventsRef.current
-                  .filter(
-                    (ev) => ev.country.toLowerCase() === dbName.toLowerCase(),
-                  )
-                  .sort(
-                    (a, b) =>
-                      new Date(b.timestamp).getTime() -
-                      new Date(a.timestamp).getTime(),
-                  )
-                  .slice(0, 5);
-
-                if (countryEvents.length === 0) return;
-
-                const riskLevel = riskMapRef.current[dbName];
-                const riskColor =
-                  riskLevel === "red"
-                    ? "#ef4444"
-                    : riskLevel === "orange"
-                      ? "#f97316"
-                      : "#22c55e";
-
-                const rows = countryEvents
-                  .map((ev) => {
-                    const age = Date.now() - new Date(ev.timestamp).getTime();
-                    const ageLabel =
-                      age < 3600000
-                        ? `${Math.round(age / 60000)}m ago`
-                        : age < 86400000
-                          ? `${Math.round(age / 3600000)}h ago`
-                          : `${Math.round(age / 86400000)}d ago`;
-                    const typeLabel = ev.eventType.replace(/_/g, " ");
-                    return `
-                    <div style="padding:6px 0;border-bottom:1px solid #1f2937;">
-                      <div style="font-size:11px;color:#f3f4f6;line-height:1.35;margin-bottom:3px;">
-                        ${escapeHtml(ev.title.length > 72 ? ev.title.slice(0, 72) + "…" : ev.title)}
-                      </div>
-                      <div style="display:flex;justify-content:space-between;">
-                        <span style="font-size:10px;color:#6b7280;text-transform:capitalize;">${typeLabel}</span>
-                        <span style="font-size:10px;color:#6b7280;">${ageLabel}</span>
-                      </div>
-                    </div>`;
-                  })
-                  .join("");
-
-                const html = `
-                  <div style="width:280px;">
-                    <div style="display:flex;align-items:center;gap:6px;padding-bottom:6px;border-bottom:1px solid #374151;margin-bottom:4px;">
-                      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${riskColor};flex-shrink:0;"></span>
-                      <span style="font-size:12px;font-weight:700;color:#f9fafb;">${escapeHtml(dbName)}</span>
-                      <span style="font-size:10px;color:#6b7280;margin-left:auto;">${countryEvents.length} event${countryEvents.length > 1 ? "s" : ""}</span>
-                    </div>
-                    <div style="max-height:220px;overflow-y:auto;">${rows}</div>
-                    <div style="padding-top:5px;font-size:10px;color:#4b5563;text-align:center;">Click to open full details</div>
-                  </div>`;
-
-                if (hoverTimeoutRef.current)
-                  clearTimeout(hoverTimeoutRef.current);
-                if (hoverPopupRef.current) hoverPopupRef.current.remove();
-                const popup = L.popup({
-                  closeButton: false,
-                  autoClose: false,
-                  closeOnClick: false,
-                  autoPan: false,
-                  offset: [0, -4],
-                })
-                  .setLatLng(e.latlng)
-                  .setContent(html)
-                  .openOn(map);
-                hoverPopupRef.current = popup;
-
-                // After Leaflet renders the popup DOM, disable scroll/wheel
-                // propagation so scrolling the list doesn't zoom the map,
-                // and keep popup alive while mouse is over it.
-                requestAnimationFrame(() => {
-                  const el = popup.getElement();
-                  if (el) {
-                    L.DomEvent.disableScrollPropagation(el);
-                    L.DomEvent.disableClickPropagation(el);
-                    // Cancel close timer when mouse enters popup
-                    L.DomEvent.on(el, "mouseenter", () => {
-                      if (hoverTimeoutRef.current) {
-                        clearTimeout(hoverTimeoutRef.current);
-                        hoverTimeoutRef.current = null;
-                      }
-                    });
-                    // Restart close timer when mouse leaves popup
-                    L.DomEvent.on(el, "mouseleave", () => {
-                      hoverTimeoutRef.current = setTimeout(() => {
-                        if (hoverPopupRef.current) {
-                          hoverPopupRef.current.remove();
-                          hoverPopupRef.current = null;
-                        }
-                      }, 150);
-                    });
-                  }
-                });
-              },
-              mouseout: (e) => {
-                layer.resetStyle(e.target as L.Path);
-                // Small delay so popup stays if mouse moves onto the popup itself
-                hoverTimeoutRef.current = setTimeout(() => {
-                  if (hoverPopupRef.current) {
-                    hoverPopupRef.current.remove();
-                    hoverPopupRef.current = null;
-                  }
-                }, 300);
-              },
-            });
-          },
-        });
-
-        layer.addTo(map);
-        geoJsonLayerRef.current = layer;
+      .then((data) => {
+        setGeoJsonData(data);
       })
-      .catch((err) =>
-        console.error("[MapView] Failed to load countries GeoJSON:", err),
-      );
-    // Only run on mount - subsequent riskMap changes use the effect below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      .catch((err) => console.error("[GlobeView] Failed to load GeoJSON:", err));
   }, []);
 
-  // â”€â”€ Re-style choropleth when riskMap prop changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+  // 2. Measure container dynamically for absolute responsive sizing
   useEffect(() => {
-    riskMapRef.current = riskMap;
-    const layer = geoJsonLayerRef.current;
-    if (!layer) return;
+    if (!containerRef.current) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setDimensions({ width, height: Math.max(400, height) });
+      }
+    });
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
 
-    layer.setStyle((feature) => {
-      const admin: string = feature?.properties?.ADMIN ?? "";
-      const dbName = resolveDbName(admin);
-      const level = riskMap[dbName];
-      return countryStyle(level);
+  // 3. Inject glowing pulse CSS animation keyframes
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const styleId = "globe-bubble-glow-style";
+    let styleEl = document.getElementById(styleId);
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = styleId;
+      styleEl.innerHTML = `
+        @keyframes red-pulse {
+          0% { box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.7); }
+          70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+          100% { box-shadow: 0 0 0 0px rgba(239, 68, 68, 0); }
+        }
+        @keyframes orange-pulse {
+          0% { box-shadow: 0 0 0 0px rgba(249, 115, 22, 0.7); }
+          70% { box-shadow: 0 0 0 12px rgba(249, 115, 22, 0); }
+          100% { box-shadow: 0 0 0 0px rgba(249, 115, 22, 0); }
+        }
+        @keyframes green-pulse {
+          0% { box-shadow: 0 0 0 0px rgba(34, 197, 94, 0.7); }
+          70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+          100% { box-shadow: 0 0 0 0px rgba(34, 197, 94, 0); }
+        }
+        .red-glow-bubble { animation: red-pulse 1.8s infinite; }
+        .orange-glow-bubble { animation: orange-pulse 2s infinite; }
+        .green-glow-bubble { animation: green-pulse 2.2s infinite; }
+      `;
+      document.head.appendChild(styleEl);
+    }
+  }, []);
+
+  // 4. Fetch dynamic country connections from SWR hook (refreshes every 60s)
+  const { data: connectionsData } = useCountryConnections(selectedCountry);
+
+  // 5. Compute top 10 influence routes for active connection arcs on the Globe
+  const activeArcs = useMemo(() => {
+    if (!selectedCountry || !connectionsData || !connectionsData.routes) return [];
+
+    const arcsList: any[] = [];
+    const targetCentroid = COUNTRY_CENTROIDS[selectedCountry];
+    if (!targetCentroid) return [];
+
+    // Limit to top 10 strongest routes per requirements
+    const topRoutes = connectionsData.routes
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+
+    for (const route of topRoutes) {
+      const sourceCentroid = COUNTRY_CENTROIDS[route.destination];
+      if (!sourceCentroid) continue;
+
+      const color = CATEGORY_COLORS[route.category] || "#f97316";
+
+      // Map connection score & intensity into custom stroke widths (thickness) and speeds (animate time)
+      let stroke = 0.5;
+      let animateTime = 4000;
+      if (route.intensity === "double" || route.score >= 100) {
+        stroke = 2.0;
+        animateTime = 800; // double pulse, fast movement
+      } else if (route.intensity === "high" || route.score >= 50) {
+        stroke = 1.3;
+        animateTime = 1400; // fast speed
+      } else if (route.intensity === "medium" || route.score >= 20) {
+        stroke = 0.8;
+        animateTime = 2400; // medium speed
+      } else {
+        stroke = 0.4;
+        animateTime = 4000; // thin, slow movement
+      }
+
+      arcsList.push({
+        startLat: sourceCentroid[0],
+        startLng: sourceCentroid[1],
+        endLat: targetCentroid[0],
+        endLng: targetCentroid[1],
+        color,
+        stroke,
+        dashLength: 0.35,
+        dashGap: 0.2,
+        dashAnimateTime: animateTime,
+      });
+    }
+
+    return arcsList;
+  }, [selectedCountry, connectionsData]);
+
+  // ── Labels layer for country names ─────────────────────────────────────────
+  const labels = useMemo(() => {
+    return Object.entries(COUNTRY_CENTROIDS).map(([country, coords]) => {
+      const level = riskMap[country] || "green";
+      
+      const color = level === "red"
+        ? "#f87171" // bright glowing red
+        : level === "orange"
+          ? "#fb923c" // bright glowing orange
+          : "rgba(156, 163, 175, 0.45)"; // subtle gray for stable countries
+
+      const size = level === "red" ? 0.95 : level === "orange" ? 0.8 : 0.65;
+      const dotRadius = level === "red" ? 0.22 : level === "orange" ? 0.15 : 0.06;
+
+      return {
+        lat: coords[0],
+        lng: coords[1],
+        text: country,
+        color,
+        size,
+        dotRadius,
+        alt: 0.008,
+      };
     });
   }, [riskMap]);
 
-  // â”€â”€ Event markers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // 6. Compile HTML Element Markers: Centroid Bubble, Events, Infrastructure, Resources
+  const markers = useMemo(() => {
+    const list: Array<{
+      lat: number;
+      lng: number;
+      alt: number;
+      html: string;
+      onClick?: () => void;
+    }> = [];
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
+    // Centroid Bubble (Only shows when a country is active/clicked)
+    if (selectedCountry) {
+      const coords = COUNTRY_CENTROIDS[selectedCountry];
+      if (coords) {
+        const level = riskMap[selectedCountry] || "green";
+        const color = RISK_FILL[level] || RISK_FILL.green;
+        const eventsCount = events.filter(e => e.country.toLowerCase() === selectedCountry.toLowerCase()).length;
+        const logRadius = Math.max(16, Math.log2(eventsCount + 1) * 10);
+        const glowClass = level === "red" ? "red-glow-bubble" : level === "orange" ? "orange-glow-bubble" : "green-glow-bubble";
 
-    const markerClusterFactory = (
-      L as unknown as {
-        markerClusterGroup?: (...args: unknown[]) => L.MarkerClusterGroup;
-      }
-    ).markerClusterGroup;
-    if (typeof markerClusterFactory !== "function") {
-      console.warn("[MapView] leaflet.markercluster plugin is not available");
-      return;
-    }
-
-    if (eventLayerRef.current) {
-      map.removeLayer(eventLayerRef.current);
-    }
-
-    const cluster = markerClusterFactory({
-      maxClusterRadius: 40,
-      spiderfyOnMaxZoom: true,
-      showCoverageOnHover: false,
-      iconCreateFunction: (c: L.MarkerCluster) => {
-        const n = c.getChildCount();
-        const color = n > 50 ? "#ef4444" : n > 10 ? "#f97316" : "#eab308";
-        return L.divIcon({
-          className: `marker-cluster`,
-          html: `<div style="
-            width:40px;height:40px;
-            border-radius:50%;
-            background:${color};
-            opacity:0.85;
-            display:flex;align-items:center;justify-content:center;
-            color:white;font-weight:bold;font-size:12px;
-            border:2px solid rgba(255,255,255,0.5);
-            box-shadow:0 0 12px ${color};
-          ">${n}</div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
+        list.push({
+          lat: coords[0],
+          lng: coords[1],
+          alt: 0.02,
+          html: `
+            <div class="${glowClass}" style="
+              width: ${logRadius * 1.8}px;
+              height: ${logRadius * 1.8}px;
+              border-radius: 50%;
+              background: ${color}2b;
+              border: 2.2px solid ${color};
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              backdrop-filter: blur(4px);
+              transform: translate(-50%, -50%);
+            ">
+              <div style="
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: ${color};
+                box-shadow: 0 0 8px ${color};
+              "></div>
+            </div>
+          `,
         });
-      },
-    });
-
-    const threeHoursAgo = Date.now() - 3 * 60 * 60 * 1000;
-    for (const event of events) {
-      const isRecent = new Date(event.timestamp).getTime() > threeHoursAgo;
-      const marker = L.marker([event.latitude, event.longitude], {
-        icon: createEventIcon(event.eventType, isRecent),
-      });
-
-      marker.bindPopup(`
-        <div style="min-width:200px;">
-          <h3 style="margin:0 0 4px;font-size:14px;font-weight:600;color:#f9fafb;">
-            ${escapeHtml(event.title)}
-          </h3>
-          <div style="font-size:11px;color:#9ca3af;margin-bottom:4px;">
-            ${event.eventType.replace(/_/g, " ")} &bull; ${escapeHtml(event.country)}
-          </div>
-          <div style="font-size:11px;color:#6b7280;">
-            ${new Date(event.timestamp).toLocaleString()}
-          </div>
-          <div style="margin-top:6px;font-size:10px;padding:2px 6px;
-            border-radius:10px;display:inline-block;
-            background:${
-              event.confidenceScore === "high"
-                ? "#166534"
-                : event.confidenceScore === "medium"
-                  ? "#854d0e"
-                  : "#7f1d1d"
-            };color:white;">
-            ${event.confidenceScore} confidence
-          </div>
-        </div>
-      `);
-
-      marker.on("click", () => onEventSelect(event));
-      cluster.addLayer(marker);
-    }
-
-    map.addLayer(cluster);
-    eventLayerRef.current = cluster;
-  }, [events, onEventSelect]);
-
-  // â”€â”€ Infrastructure layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (infraLayerRef.current) {
-      map.removeLayer(infraLayerRef.current);
-      infraLayerRef.current = null;
-    }
-
-    if (!showInfrastructure || infrastructure.length === 0) return;
-
-    const layer = L.layerGroup();
-
-    for (const item of infrastructure) {
-      const marker = L.marker([item.latitude, item.longitude], {
-        icon: infraIcon,
-      });
-      marker.bindPopup(`
-        <div>
-          <h4 style="margin:0;font-size:12px;color:#93c5fd;">${escapeHtml(item.name)}</h4>
-          <div style="font-size:11px;color:#9ca3af;">
-            ${item.type.replace(/_/g, " ")} &bull; ${escapeHtml(item.country)}
-          </div>
-        </div>
-      `);
-      layer.addLayer(marker);
-    }
-
-    layer.addTo(map);
-    infraLayerRef.current = layer;
-  }, [infrastructure, showInfrastructure]);
-
-  // â”€â”€ Heatmap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const heatLayerFactory = (
-      L as unknown as {
-        heatLayer?: (...args: unknown[]) => L.Layer;
       }
-    ).heatLayer;
-    if (typeof heatLayerFactory !== "function") {
-      console.warn("[MapView] leaflet.heat plugin is not available");
-      return;
     }
 
-    if (heatLayerRef.current) {
-      map.removeLayer(heatLayerRef.current);
-      heatLayerRef.current = null;
+    // Infrastructure Markers
+    if (showInfrastructure) {
+      for (const item of infrastructure) {
+        list.push({
+          lat: item.latitude,
+          lng: item.longitude,
+          alt: 0.012,
+          html: `
+            <div style="
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              background: #3b82f6;
+              border: 1.5px solid rgba(255,255,255,0.7);
+              box-shadow: 0 0 6px rgba(59,130,246,0.7);
+              transform: translate(-50%, -50%);
+            " title="${item.name} (${item.type.replace(/_/g, ' ')})"></div>
+          `,
+        });
+      }
     }
 
-    if (!showHeatmap || events.length === 0) return;
+    // Commodity Resources Markers (Placed slightly north of country centroids)
+    if (resources && resources.length > 0) {
+      for (const entry of resources) {
+        if (!entry.resources || entry.resources.length === 0) continue;
+        const coords = COUNTRY_CENTROIDS[entry.country];
+        if (!coords) continue;
 
-    const heatData: [number, number, number][] = events.map((e) => [
-      e.latitude,
-      e.longitude,
-      0.5,
-    ]);
+        const icons = entry.resources
+          .map((r) => COMMODITY_ICONS[r] ?? "")
+          .filter(Boolean)
+          .join(" ");
 
-    const heat = heatLayerFactory(heatData, {
-      radius: 25,
-      blur: 15,
-      maxZoom: 10,
-      gradient: {
-        0.2: "#fef08a",
-        0.5: "#f97316",
-        0.8: "#ef4444",
-        1.0: "#dc2626",
-      },
-    });
+        if (!icons) continue;
 
-    heat.addTo(map);
-    heatLayerRef.current = heat;
-  }, [events, showHeatmap]);
+        list.push({
+          lat: coords[0] + 2.8, // nudge north slightly to avoid centroid overlaps
+          lng: coords[1],
+          alt: 0.008,
+          html: `
+            <div style="
+              font-size: 11px;
+              line-height: 1;
+              text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+              white-space: nowrap;
+              pointer-events: none;
+              filter: drop-shadow(0 0 2px rgba(0,0,0,0.8));
+              transform: translate(-50%, -50%);
+              background: rgba(11, 15, 25, 0.7);
+              border: 1px solid rgba(255,255,255,0.15);
+              padding: 2.5px 5px;
+              border-radius: 4px;
+              color: white;
+            ">${icons}</div>
+          `,
+        });
+      }
+    }
 
-  // ── Resource icon markers ─────────────────────────────────────────────────
+    // Geopolitical Conflict Event Markers
+    for (const ev of events) {
+      const color = EVENT_TYPE_COLORS[ev.eventType] || "#ef4444";
+      const isSelected = selectedEvent?.id === ev.id;
+      const size = isSelected ? 12 : showHeatmap ? 14 : 7;
+      const shadow = isSelected ? `0 0 10px 4px ${color}` : `0 0 6px ${color}`;
+
+      list.push({
+        lat: ev.latitude,
+        lng: ev.longitude,
+        alt: 0.015,
+        html: `
+          <div style="
+            width: ${size}px;
+            height: ${size}px;
+            border-radius: 50%;
+            background: ${color};
+            border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: ${shadow};
+            transform: translate(-50%, -50%);
+            transition: all 0.2s ease-in-out;
+          " title="${ev.title}"></div>
+        `,
+        onClick: () => onEventSelect(ev),
+      });
+    }
+
+    return list;
+  }, [events, infrastructure, showInfrastructure, resources, selectedCountry, riskMap, selectedEvent, showHeatmap, onEventSelect]);
+
+  // 7. Globe camera control effects
+  useEffect(() => {
+    if (!globeRef.current) return;
+
+    if (selectedCountry) {
+      const coords = COUNTRY_CENTROIDS[selectedCountry];
+      if (coords) {
+        // Fly smoothly to target centroid, shifting camera slightly south for breathing space
+        globeRef.current.pointOfView(
+          { lat: coords[0] - 11, lng: coords[1], altitude: 1.25 },
+          1400
+        );
+      }
+    } else {
+      // Zoom back out to global view
+      globeRef.current.pointOfView({ lat: 25, lng: 15, altitude: 2.2 }, 1400);
+    }
+  }, [selectedCountry]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (resourceLayerRef.current) {
-      map.removeLayer(resourceLayerRef.current);
-      resourceLayerRef.current = null;
-    }
-
-    if (resources.length === 0) return;
-
-    const layer = L.layerGroup();
-
-    for (const entry of resources) {
-      if (!entry.resources || entry.resources.length === 0) continue;
-
-      // Use the GeoJSON centroid lookup — approximate country centres
-      const coords = COUNTRY_CENTROIDS[entry.country];
-      if (!coords) continue;
-
-      // Build a small clustered icon showing all resource emojis
-      const icons = entry.resources
-        .map((r) => COMMODITY_ICONS[r as keyof typeof COMMODITY_ICONS] ?? "")
-        .filter(Boolean)
-        .join(" ");
-
-      const icon = L.divIcon({
-        className: "resource-icon-marker",
-        html: `<div style="
-          font-size:14px;
-          line-height:1;
-          text-shadow:0 1px 3px rgba(0,0,0,0.9);
-          white-space:nowrap;
-          pointer-events:none;
-          filter:drop-shadow(0 0 2px rgba(0,0,0,0.8));
-        ">${icons}</div>`,
-        iconSize: [entry.resources.length * 18, 18],
-        iconAnchor: [(entry.resources.length * 18) / 2, 9],
-      });
-
-      const marker = L.marker(coords, {
-        icon,
-        interactive: false,
-        zIndexOffset: -100,
-      });
-      layer.addLayer(marker);
-    }
-
-    layer.addTo(map);
-    resourceLayerRef.current = layer;
-  }, [resources]);
-
-  // ── Fly to selected event ─────────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (selectedEvent && mapRef.current) {
-      mapRef.current.flyTo(
-        [selectedEvent.latitude, selectedEvent.longitude],
-        10,
-        { duration: 1.5 },
-      );
-    }
+    if (!globeRef.current || !selectedEvent) return;
+    // Focus in on single event
+    globeRef.current.pointOfView(
+      { lat: selectedEvent.latitude, lng: selectedEvent.longitude, altitude: 0.65 },
+      1400
+    );
   }, [selectedEvent]);
 
   const handleResetView = () => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    map.flyTo(INITIAL_MAP_CENTER, INITIAL_MAP_ZOOM, { duration: 1.1 });
+    if (!globeRef.current) return;
+    globeRef.current.pointOfView({ lat: 25, lng: 15, altitude: 2.2 }, 1200);
   };
 
   return (
-    <div className="relative w-full h-full" style={{ minHeight: "400px" }}>
-      <div ref={mapContainerRef} className="w-full h-full" />
+    <div ref={containerRef} className="relative w-full h-full" style={{ minHeight: "400px" }}>
+      <Globe
+        ref={globeRef}
+        width={dimensions.width}
+        height={dimensions.height}
+        globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
+        backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
+        
+        // Choropleth layers
+        polygonsData={geoJsonData ? geoJsonData.features : []}
+        polygonCapColor={(feat: any) => {
+          const admin = feat?.properties?.ADMIN ?? "";
+          const dbName = resolveDbName(admin);
+          const level = riskMap[dbName];
+          return level && level !== "green"
+            ? `${RISK_FILL[level]}4a` // 29% opacity for threat risk zones
+            : "rgba(34, 197, 94, 0.05)"; // stable / green
+        }}
+        polygonSideColor={() => "rgba(255, 255, 255, 0.02)"}
+        polygonStrokeColor={() => "#1c2430"}
+        polygonStrokeWidth={0.5}
+        polygonAltitude={0.005}
+        onPolygonClick={(feat: any) => {
+          const admin = feat?.properties?.ADMIN ?? "";
+          const dbName = resolveDbName(admin);
+          onCountrySelect(dbName);
+        }}
+
+        // HTML elements markers
+        htmlElementsData={markers}
+        htmlElement={(d: any) => {
+          const el = document.createElement("div");
+          el.innerHTML = d.html;
+          if (d.onClick) {
+            el.onclick = d.onClick;
+            el.style.cursor = "pointer";
+          }
+          return el;
+        }}
+        htmlLat={(d: any) => d.lat}
+        htmlLng={(d: any) => d.lng}
+        htmlAltitude={(d: any) => d.alt}
+
+        // Labeled country names
+        labelsData={labels}
+        labelLat={(d: any) => d.lat}
+        labelLng={(d: any) => d.lng}
+        labelText={(d: any) => d.text}
+        labelColor={(d: any) => d.color}
+        labelSize={(d: any) => d.size}
+        labelDotRadius={(d: any) => d.dotRadius}
+        labelAltitude={(d: any) => d.alt}
+
+        // Animated connection layer (arcs with continuous glowing pulses)
+        arcsData={activeArcs}
+        arcStartLat={(d: any) => d.startLat}
+        arcStartLng={(d: any) => d.startLng}
+        arcEndLat={(d: any) => d.endLat}
+        arcEndLng={(d: any) => d.endLng}
+        arcColor={(d: any) => d.color}
+        arcStroke={(d: any) => d.stroke}
+        arcDashLength={(d: any) => d.dashLength}
+        arcDashGap={(d: any) => d.dashGap}
+        arcDashAnimateTime={(d: any) => d.dashAnimateTime}
+        arcAltitudeAutoScale={0.4}
+      />
 
       <button
         type="button"
@@ -655,19 +518,5 @@ const MapView: FC<MapViewProps> = ({
     </div>
   );
 };
-
-function escapeHtml(str: string): string {
-  const div =
-    typeof document !== "undefined" ? document.createElement("div") : null;
-  if (div) {
-    div.textContent = str;
-    return div.innerHTML;
-  }
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 export default MapView;

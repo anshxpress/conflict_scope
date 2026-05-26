@@ -79,6 +79,26 @@ export function useCountryRisk(country: string | null) {
   );
 }
 
+/** Loads country influence connection routes for a single country, refreshing every 60s. */
+export function useCountryConnections(country: string | null) {
+  return useSWR<{
+    country: string;
+    routes: Array<{
+      destination: string;
+      score: number;
+      category: string;
+      intensity: "low" | "medium" | "high" | "double";
+    }>;
+  }>(
+    country ? ["country-connections", country] : null,
+    () => api.getCountryConnections(country!),
+    {
+      refreshInterval: 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
+}
+
 /** Fetches latest commodity prices — refreshes every 30 min. */
 export function useCommodityPrices() {
   return useSWR<CommodityPrices>("commodity-prices", () => api.getCommodityPrices(), {

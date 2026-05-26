@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import { db, schema } from "../../../db";
 import { and, eq, gte, desc, count, sql } from "drizzle-orm";
 
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -46,30 +47,30 @@ export const riskMapRoutes = new Elysia({ prefix: "/risk-map" })
   /**
    * GET /risk-map
    * Returns country → "red" | "orange" for all countries with events.
-   * Countries with no events in 30 days are absent (frontend treats as "green").
+   * Countries with no events in 14 days are green (frontend treats absent as "green").
    */
   .get("/", async () => {
     const now = Date.now();
+    const sevenDaysAgo = new Date(now - SEVEN_DAYS_MS);
     const fourteenDaysAgo = new Date(now - FOURTEEN_DAYS_MS);
-    const thirtyDaysAgo = new Date(now - THIRTY_DAYS_MS);
 
     const recentEvents = await db
       .select({
-        country: schema.events.country,
-        timestamp: schema.events.timestamp,
+        country: schema.countryEvents.countryId,
+        publishedAt: schema.countryEvents.publishedAt,
       })
-      .from(schema.events)
-      .where(gte(schema.events.timestamp, thirtyDaysAgo));
+      .from(schema.countryEvents)
+      .where(gte(schema.countryEvents.publishedAt, fourteenDaysAgo));
 
     const risk: Record<string, "red" | "orange"> = {};
 
     for (const event of recentEvents) {
-      const country = normalizeCountry(event.country ?? "");
-      if (!country) continue;
+      if (!event.country) continue;
+      const country = normalizeCountry(event.country);
       if (risk[country] === "red") continue;
 
-      const ts = new Date(event.timestamp).getTime();
-      if (ts >= fourteenDaysAgo.getTime()) {
+      const ts = event.publishedAt ? new Date(event.publishedAt).getTime() : 0;
+      if (ts >= sevenDaysAgo.getTime()) {
         risk[country] = "red";
       } else {
         risk[country] = "orange";

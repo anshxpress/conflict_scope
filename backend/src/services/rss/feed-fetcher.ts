@@ -12,7 +12,7 @@ export interface FeedArticle {
 const parser = new Parser({
   timeout: 15000,
   headers: {
-    "User-Agent": "ConflictScope/1.0 (OSINT Research Platform)",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   },
   // tolerate feeds that omit XML namespace declarations
   customFields: { feed: [], item: [] },
@@ -30,12 +30,12 @@ const RSS_FEEDS: FeedDef[] = [
   // Reuters — world's largest international wire service
   {
     name: "Reuters",
-    url: "https://www.reuters.com/world/rss",
+    url: "https://news.yahoo.com/rss/reuters",
   },
   // Associated Press — foundational global wire service
   {
     name: "Associated Press",
-    url: "https://apnews.com/hub/ap-top-news?outputType=rss",
+    url: "https://news.yahoo.com/rss/associated-press",
   },
 
   // ── PRIMARY BROADCASTERS ────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ const RSS_FEEDS: FeedDef[] = [
   // UN News — authoritative global (peacekeeping, UNHCR, humanitarian ops)
   {
     name: "UN News",
-    url: "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+    url: "https://news.google.com/rss/search?q=site:news.un.org&hl=en-US&gl=US&ceid=US:en",
   },
 
   // ReliefWeb — humanitarian crises (displacement, aid corridors, camp sieges)
@@ -145,10 +145,10 @@ const RSS_FEEDS: FeedDef[] = [
     url: "https://lloydslist.maritimeintelligence.informa.com/rss-feeds",
     fallback: "https://gcaptain.com/feed/",
   },
-  // Maritime Executive — vessel incidents, piracy, armed attack reports
+  // Splash 247 — vessel incidents, piracy, armed shipping attack reports
   {
-    name: "Maritime Executive",
-    url: "https://maritime-executive.com/rss/articles",
+    name: "Splash 247",
+    url: "https://splash247.com/feed/",
   },
 ];
 
@@ -208,7 +208,7 @@ async function fetchSingleFeed(
   const response = await fetch(url, {
     signal: AbortSignal.timeout(15000),
     headers: {
-      "User-Agent": "ConflictScope/1.0 (OSINT Research Platform)",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       "Accept": "application/rss+xml, application/atom+xml, text/xml, */*",
     },
   });
@@ -346,3 +346,274 @@ export async function fetchGdeltArticles(
     return [];
   }
 }
+
+/**
+ * Fetch conflict articles from GNews API using user key.
+ */
+export async function fetchGNewsArticles(
+  sinceMinutes: number = 30
+): Promise<FeedArticle[]> {
+  const apiKey = process.env.GNEWS_KEY;
+  if (!apiKey) {
+    console.log("[GNews] No API key found, skipping.");
+    return [];
+  }
+
+  const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
+  const query = encodeURIComponent("airstrike OR missile OR shelling OR explosion OR ceasefire");
+  const url = `https://gnews.io/api/v4/search?q=${query}&lang=en&token=${apiKey}&max=15`;
+
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) {
+      console.warn(`[GNews] HTTP error ${res.status}`);
+      return [];
+    }
+    const json = (await res.json()) as {
+      articles?: Array<{
+        title: string;
+        url: string;
+        description?: string;
+        content?: string;
+        publishedAt: string;
+        source?: { name?: string };
+      }>;
+    };
+
+    const articles: FeedArticle[] = [];
+    for (const a of json.articles ?? []) {
+      const pubDate = a.publishedAt ? new Date(a.publishedAt) : new Date();
+      if (pubDate < cutoff) continue;
+
+      articles.push({
+        title: a.title,
+        link: a.url,
+        content: stripHTML(a.description || a.content || ""),
+        sourceName: `GNews:${a.source?.name || "Unknown"}`,
+        publishedDate: pubDate,
+      });
+    }
+
+    console.log(`[GNews] Fetched ${articles.length} articles since cutoff`);
+    return articles;
+  } catch (err) {
+    console.warn("[GNews] Fetch failed:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetch conflict articles from NewsAPI using user key.
+ */
+export async function fetchNewsApiArticles(
+  sinceMinutes: number = 30
+): Promise<FeedArticle[]> {
+  const apiKey = process.env.NEWSAPI_KEY;
+  if (!apiKey) {
+    console.log("[NewsAPI] No API key found, skipping.");
+    return [];
+  }
+
+  const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
+  const query = encodeURIComponent("(airstrike OR missile OR shelling OR explosion OR ceasefire)");
+  const url = `https://newsapi.org/v2/everything?q=${query}&language=en&pageSize=15&sortBy=publishedAt&apiKey=${apiKey}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "ConflictScope/1.0 (OSINT Research Platform)",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      console.warn(`[NewsAPI] HTTP error ${res.status}`);
+      return [];
+    }
+    const json = (await res.json()) as {
+      articles?: Array<{
+        title: string;
+        url: string;
+        description?: string;
+        content?: string;
+        publishedAt: string;
+        source?: { name?: string };
+      }>;
+    };
+
+    const articles: FeedArticle[] = [];
+    for (const a of json.articles ?? []) {
+      const pubDate = a.publishedAt ? new Date(a.publishedAt) : new Date();
+      if (pubDate < cutoff) continue;
+
+      articles.push({
+        title: a.title,
+        link: a.url,
+        content: stripHTML(a.description || a.content || ""),
+        sourceName: `NewsAPI:${a.source?.name || "Unknown"}`,
+        publishedDate: pubDate,
+      });
+    }
+
+    console.log(`[NewsAPI] Fetched ${articles.length} articles since cutoff`);
+    return articles;
+  } catch (err) {
+    console.warn("[NewsAPI] Fetch failed:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetch conflict articles from NewsData.io API using user key.
+ */
+export async function fetchNewsDataArticles(
+  sinceMinutes: number = 30
+): Promise<FeedArticle[]> {
+  const apiKey = process.env.NEWSDATA_KEY;
+  if (!apiKey) {
+    console.log("[NewsData] No API key found, skipping.");
+    return [];
+  }
+
+  const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
+  const query = encodeURIComponent("airstrike OR missile OR shelling OR explosion OR ceasefire");
+  const url = `https://newsdata.io/api/1/news?apikey=${apiKey}&q=${query}&language=en`;
+
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) {
+      console.warn(`[NewsData] HTTP error ${res.status}`);
+      return [];
+    }
+    const json = (await res.json()) as {
+      results?: Array<{
+        title: string;
+        link: string;
+        description?: string;
+        content?: string;
+        pubDate?: string;
+        source_id?: string;
+      }>;
+    };
+
+    const articles: FeedArticle[] = [];
+    for (const a of json.results ?? []) {
+      const pubDate = a.pubDate ? new Date(a.pubDate) : new Date();
+      if (pubDate < cutoff) continue;
+
+      articles.push({
+        title: a.title,
+        link: a.link,
+        content: stripHTML(a.description || a.content || ""),
+        sourceName: `NewsData:${a.source_id || "Unknown"}`,
+        publishedDate: pubDate,
+      });
+    }
+
+    console.log(`[NewsData] Fetched ${articles.length} articles since cutoff`);
+    return articles;
+  } catch (err) {
+    console.warn("[NewsData] Fetch failed:", err);
+    return [];
+  }
+}
+
+/**
+ * Aggregates all enabled third-party APIs (GNews, NewsAPI, NewsData.io).
+ */
+export async function fetchThirdPartyNews(
+  sinceMinutes: number = 30
+): Promise<FeedArticle[]> {
+  console.log(`[Pipeline] Querying active third-party news APIs (lookback: ${sinceMinutes}m)...`);
+  const [gnews, newsapi, newsdata] = await Promise.allSettled([
+    fetchGNewsArticles(sinceMinutes),
+    fetchNewsApiArticles(sinceMinutes),
+    fetchNewsDataArticles(sinceMinutes),
+  ]);
+
+  const allArticles: FeedArticle[] = [];
+
+  if (gnews.status === "fulfilled") allArticles.push(...gnews.value);
+  else console.warn("[Pipeline] GNews fetch failed:", gnews.reason);
+
+  if (newsapi.status === "fulfilled") allArticles.push(...newsapi.value);
+  else console.warn("[Pipeline] NewsAPI fetch failed:", newsapi.reason);
+
+  if (newsdata.status === "fulfilled") allArticles.push(...newsdata.value);
+  else console.warn("[Pipeline] NewsData fetch failed:", newsdata.reason);
+
+  console.log(`[Pipeline] Ingested ${allArticles.length} total articles from third-party APIs`);
+  return allArticles;
+}
+
+const YOUTUBE_CHANNELS = [
+  "UCZFMm1mMw0F81Z37aaEzTUA", // NDTV
+  "UCt4t-jeY85JegMlZ-E5UWtA", // Aaj Tak
+  "UC_gUM8rL-Lrg6O3adPW9K1g", // WION
+  "UC6RJ7-PaXg6TIH2BzZfTV7w", // Times Now
+  "UCMk9Tdc-d1BIcAFaSppiVkw", // Times Now Navbharat
+  "UCilbgr035NJ7BIkVPMeLyWA", // Republic TV
+  "UC16niRr50-MSBwiO3YDb3RA", // BBC News
+  "UCupvZG-5ko_eiXAupbDfxWw", // CNN
+  "UCNye-wNBqNL5ZzHSJj3l8Bg", // Al Jazeera English
+  "UCknLrEdhRCp1aegoMqRaCZg", // DW News
+  "UChqUTb7kYRX8-EiaN3XFrSQ", // Reuters
+];
+
+/**
+ * Fetch latest YouTube videos from configured global news channels via RSS feeds.
+ */
+export async function fetchYouTubeArticles(
+  sinceMinutes: number = 30
+): Promise<FeedArticle[]> {
+  console.log(`[YouTube RSS] Fetching videos from channels (lookback: ${sinceMinutes}m)...`);
+  const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
+  const articles: FeedArticle[] = [];
+
+  const results = await Promise.allSettled(
+    YOUTUBE_CHANNELS.map(async (channelId) => {
+      const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+      try {
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(10000),
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+          },
+        });
+        if (!response.ok) return [];
+        const rawText = await response.text();
+        const xmlText = rawText.replace(/^\uFEFF/, "").trimStart();
+        const feed = await parser.parseString(xmlText);
+        const channelTitle = feed.title || `YouTube Channel: ${channelId}`;
+
+        const channelVideos: FeedArticle[] = [];
+        for (const item of feed.items ?? []) {
+          const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
+          if (pubDate < cutoff) continue;
+          if (!item.title || !item.link) continue;
+
+          channelVideos.push({
+            title: item.title,
+            link: item.link,
+            content: item.contentSnippet || item.title,
+            sourceName: `YouTube:${channelTitle.replace(" - YouTube", "")}`,
+            publishedDate: pubDate,
+          });
+        }
+        return channelVideos;
+      } catch (err) {
+        console.warn(`[YouTube RSS] Failed for channel ${channelId}:`, err);
+        return [];
+      }
+    })
+  );
+
+  for (const r of results) {
+    if (r.status === "fulfilled") {
+      articles.push(...r.value);
+    }
+  }
+
+  console.log(`[YouTube RSS] Fetched ${articles.length} videos since cutoff`);
+  return articles;
+}
+

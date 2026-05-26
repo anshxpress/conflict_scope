@@ -68,8 +68,7 @@ export default function DashboardPage() {
   // â”€â”€ Timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [timeRange, setTimeRange] = useState<[Date, Date]>(() => {
     const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
+    const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     return [start, now];
   });
 
@@ -185,8 +184,7 @@ export default function DashboardPage() {
     setSelectedType("");
     setSelectedConfidence("");
     const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
+    const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     setTimeRange([start, now]);
   }, []);
 
@@ -236,7 +234,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Top NavBar ────────────────────────────────── */}
-      <header className="shrink-0 h-12 bg-cs-panel border-b border-cs-border flex items-center px-4 gap-4 z-50">
+      <header className="shrink-0 h-12 bg-cs-panel border-b border-cs-border flex items-center px-4 gap-4 z-[9999]">
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 relative">
@@ -457,10 +455,10 @@ export default function DashboardPage() {
           </svg>
         </button>
 
-        {/* â”€â”€ Map Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <div className="flex-1 flex flex-col relative overflow-hidden">
+        {/* ── Map Area ────────────────────────────────── */}
+        <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
           {/* Map itself */}
-          <div className="flex-1 relative">
+          <div className="flex-1 h-0 relative">
             <MapView
               events={showEvents ? events : []}
               infrastructure={filteredInfra}
@@ -470,6 +468,7 @@ export default function DashboardPage() {
               onEventSelect={handleEventSelect}
               riskMap={riskMap}
               onCountrySelect={handleCountrySelect}
+              selectedCountry={selectedMapCountry}
               resources={resourcesData ?? []}
             />
 

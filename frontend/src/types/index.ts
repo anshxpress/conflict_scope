@@ -147,22 +147,34 @@ export type RiskMap = Record<string, RiskLevel>;
 export interface CountryRiskDetails {
   country: string;
   riskLevel: RiskLevel;
-  events14Days: number;
-  events30Days: number;
-  recentEvents: Array<{
+  score: number;
+  articles: Array<{
     id: string;
     title: string;
-    eventType: string;
-    timestamp: string;
-    latitude: number;
-    longitude: number;
-  }>;
-  recentImpacts: Array<{
-    id: string;
-    eventId: string;
-    impactType: ImpactType;
     description: string | null;
-    severity: ImpactSeverity;
+    url: string;
+    source: string;
+    publishedAt: string | null;
+    image?: string | null;
+    category: string | null;
+    duplicateCount: number | null;
+  }>;
+  categories: Record<string, number>;
+  commodities: string[];
+  videos: Array<{
+    videoId: string;
+    title: string;
+    channel: string;
+    publishedAt: string | null;
+    thumbnail: string;
+  }>;
+  timeline: Array<{
+    date: string | null;
+    title: string;
+    category: string;
+    severity: number;
+    url?: string | null;
+    source?: string | null;
   }>;
 }
 

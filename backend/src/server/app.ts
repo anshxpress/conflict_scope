@@ -5,13 +5,16 @@ import { infrastructureRoutes } from "./routes/infrastructure";
 import { statsRoutes } from "./routes/stats";
 import { riskMapRoutes } from "./routes/risk-map";
 import { commodityRoutes } from "./routes/commodities";
+import { countryRoutes } from "./routes/country";
 
 export function createApp() {
   const app = new Elysia()
     .use(
       cors({
-        origin: process.env.FRONTEND_URL || "http://localhost:3000",
-        methods: ["GET", "POST"],
+        origin: true, // Dynamically allow any origin (localhost, 127.0.0.1, local network IP)
+        credentials: true,
+        methods: ["GET", "POST", "OPTIONS"],
+        allowedHeaders: ["content-type", "authorization", "accept"],
       })
     )
     .get("/health", () => ({
@@ -26,6 +29,7 @@ export function createApp() {
         .use(statsRoutes)
         .use(riskMapRoutes)
         .use(commodityRoutes)
+        .use(countryRoutes)
     );
 
   return app;

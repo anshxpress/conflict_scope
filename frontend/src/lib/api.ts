@@ -113,8 +113,23 @@ export const api = {
   /**
    * Fetch detailed risk stats for a single country (for CountryRiskPanel).
    */
-  getCountryRiskDetails(country: string): Promise<CountryRiskDetails> {
-    return fetchJSON(`/risk-map/country/${encodeURIComponent(country)}`);
+  getCountryRiskDetails(country: string): Promise<any> {
+    return fetchJSON(`/country/${encodeURIComponent(country)}`);
+  },
+
+  /**
+   * Fetch top country influence connection routes for a single country.
+   */
+  getCountryConnections(country: string): Promise<{
+    country: string;
+    routes: Array<{
+      destination: string;
+      score: number;
+      category: string;
+      intensity: "low" | "medium" | "high" | "double";
+    }>;
+  }> {
+    return fetchJSON(`/country/connections/${encodeURIComponent(country)}`);
   },
 
   /**
