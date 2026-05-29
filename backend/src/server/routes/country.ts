@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import { db, schema } from "../../../db";
 import { eq, and, gte } from "drizzle-orm";
 import { updateCountryMetrics, dbMemoryBuffer } from "../../services/workers/pipeline";
+import { countryCache } from "../../lib/cache/country-cache";
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes cache (V2 Standard)
 
@@ -22,6 +23,14 @@ export const countryRoutes = new Elysia({ prefix: "/country" })
       .join(" ");
 
     try {
+      // ── L1: Redis cache check ────────────────────────────────────────────
+      const redisHit = await countryCache.get(country);
+      if (redisHit) {
+        set.headers["Cache-Control"] = "public, max-age=600";
+        return redisHit;
+      }
+
+      // ── L2: Postgres / DB cache check ────────────────────────────────────
       // 1. Look for pre-calculated cache in country_metrics
       const [cached] = await db
         .select({
@@ -46,9 +55,9 @@ export const countryRoutes = new Elysia({ prefix: "/country" })
         const cacheAge = now - new Date(cached.lastUpdated).getTime();
         
         if (cacheAge < CACHE_TTL_MS) {
-          // Cache hit: serve directly!
+          // Cache hit: promote to Redis and serve!
           set.headers["Cache-Control"] = "public, max-age=600"; // 10m CDN cache
-          return {
+          const payload = {
             country: cached.country,
             score: cached.score,
             riskLevel: cached.riskLevel || "green",
@@ -59,6 +68,9 @@ export const countryRoutes = new Elysia({ prefix: "/country" })
             timeline: cached.timeline,
             cached: true,
           };
+          // Promote to Redis for the next 30 minutes (non-blocking)
+          countryCache.set(country, payload).catch(() => {});
+          return payload;
         }
       }
 
@@ -102,7 +114,7 @@ export const countryRoutes = new Elysia({ prefix: "/country" })
 
       // V2: extended CDN cache control to match the 30-minute standard
       set.headers["Cache-Control"] = "public, max-age=1800";
-      return {
+      const freshPayload = {
         country: fresh.country,
         score: fresh.score,
         riskLevel: fresh.riskLevel || "green",
@@ -113,6 +125,9 @@ export const countryRoutes = new Elysia({ prefix: "/country" })
         timeline: fresh.timeline,
         cached: false,
       };
+      // Store fresh result in Redis for subsequent requests (non-blocking)
+      countryCache.set(country, freshPayload).catch(() => {});
+      return freshPayload;
 
     } catch (err) {
       console.error(`[Country API] Error serving intelligence for ${country}:`, err);

@@ -7,6 +7,7 @@ import {
   isStrictlyVerifiedSignal,
 } from "../../services/commodities/forecast-engine";
 import { toCommodityForecastApiResponse } from "./contracts/commodity-forecast";
+import { redis, TTL } from "../../lib/redis";
 
 function confidenceFromRank(
   rank: number | null | undefined,
@@ -41,6 +42,15 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
    * plus the live USD→INR exchange rate.
    */
   .get("/prices", async () => {
+    // ── L1: Redis cache (5 min) ────────────────────────────────────────
+    const PRICES_KEY = "commodity:prices";
+    const cachedPrices = await redis.get(PRICES_KEY);
+    if (cachedPrices) {
+      console.log("[CommodityAPI] Redis cache HIT for /prices");
+      return cachedPrices;
+    }
+
+    // ── L2: DB fetch ────────────────────────────────────────────────
     const commodities = ["gold", "silver", "oil"] as const;
     const result: Record<
       string,
@@ -70,7 +80,12 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
     }
 
     const usdToInr = await fetchUsdToInr();
-    return { ...result, usdToInr };
+    const pricesPayload = { ...result, usdToInr };
+
+    // Store in Redis for 5 minutes (non-blocking)
+    redis.set(PRICES_KEY, pricesPayload, TTL.COMMODITY_PRICES).catch(() => {});
+
+    return pricesPayload;
   })
 
   /**
@@ -489,6 +504,15 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
    * Aggregated panel data for the new geopolitical commodity insight widget.
    */
   .get("/overview", async () => {
+    // ── L1: Redis cache (10 min) ──────────────────────────────────────
+    const OVERVIEW_KEY = "commodity:overview";
+    const cachedOverview = await redis.get(OVERVIEW_KEY);
+    if (cachedOverview) {
+      console.log("[CommodityAPI] Redis cache HIT for /overview");
+      return cachedOverview;
+    }
+
+    // ── L2: DB aggregation ────────────────────────────────────────────
     const latestPrices = await db.execute(sql`
       SELECT DISTINCT ON (commodity)
         commodity,
@@ -521,7 +545,7 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
       .orderBy(desc(schema.commodityAlerts.createdAt))
       .limit(10);
 
-    return {
+    const overviewPayload = {
       latestPrices: latestPrices as unknown,
       topImpacts,
       latestAlerts: latestAlerts.map((a) => ({
@@ -529,4 +553,9 @@ export const commodityRoutes = new Elysia({ prefix: "/commodities" })
         createdAt: a.createdAt.toISOString(),
       })),
     };
+
+    // Store in Redis for 10 minutes (non-blocking)
+    redis.set(OVERVIEW_KEY, overviewPayload, TTL.COMMODITY_OVERVIEW).catch(() => {});
+
+    return overviewPayload;
   });

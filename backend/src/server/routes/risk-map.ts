@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { db, schema } from "../../../db";
 import { and, eq, gte, desc, count, sql } from "drizzle-orm";
+import { redis, TTL } from "../../lib/redis";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -50,6 +51,15 @@ export const riskMapRoutes = new Elysia({ prefix: "/risk-map" })
    * Countries with no events in 14 days are green (frontend treats absent as "green").
    */
   .get("/", async () => {
+    // ── L1: Redis cache check ────────────────────────────────────────────
+    const RISK_MAP_KEY = "risk-map:global";
+    const cachedRiskMap = await redis.get<Record<string, "red" | "orange">>(RISK_MAP_KEY);
+    if (cachedRiskMap) {
+      console.log("[RiskMapAPI] Redis cache HIT for global risk map.");
+      return cachedRiskMap;
+    }
+
+    // ── L2: Postgres fetch ───────────────────────────────────────────────
     const now = Date.now();
     const sevenDaysAgo = new Date(now - SEVEN_DAYS_MS);
     const fourteenDaysAgo = new Date(now - FOURTEEN_DAYS_MS);
@@ -76,6 +86,9 @@ export const riskMapRoutes = new Elysia({ prefix: "/risk-map" })
         risk[country] = "orange";
       }
     }
+
+    // Store in Redis for 5 minutes (non-blocking)
+    redis.set(RISK_MAP_KEY, risk, TTL.RISK_MAP).catch(() => {});
 
     return risk;
   })
