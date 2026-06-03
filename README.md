@@ -20,17 +20,18 @@
 
 ## Why ConflictScope?
 
-Wars don't wait for the morning news. Supply lines get cut. Markets react. Civilians move. By the time legacy outlets publish a roundup, the situation on the ground has already changed.
+Information shouldn't overwhelm; it should impact. Ordinary citizens need to know when fuel prices change, public services are disrupted, taxes are modified, or severe weather is approaching—not just geopolitical conflicts.
 
-**ConflictScope** is a purpose-built intelligence dashboard that:
+**ConflictScope** is a purpose-built India-first personalized impact intelligence dashboard that:
 
-- Ingests articles from **18 global news feeds + GDELT** every 10 minutes
-- Runs a **3-gate NLP filter** to discard entertainment, lifestyle, and duplicate content
-- Extracts **conflict events** with geolocation, event typing, and confidence scoring
-- Renders everything on a **dark-themed interactive world map** with heatmaps, clustering, and infrastructure overlays
-- Shows **country risk profiles** with political leaders, billionaires, and commodity war-impact alerts
+- Ingests articles from **GNews, NewsData, NewsAPI, GDELT, PIB India, and RSS feeds** using rotating category pipelines
+- Classifies and routes news into **19 public-interest categories** (Fuel, Tax, Banking, Jobs, Weather, Transport, etc.)
+- Employs a **5-tier Importance Scorer** to measure real-world impact (population affected, economic changes, recency, location relevance, and category priority)
+- Filters out celebrity gossip and duplicates using a **3-layer deduplication engine** (URL, Title hash, and Semantic Embeddings)
+- Delivers a **balanced Home Feed** in-memory (no single category exceeds 25% of the feed) with +15 priority boosting for user-preferred categories
+- Renders geospatial data on a dark-themed interactive map while providing hyperlocal (city, state) personalized news feeds with **10-minute Redis caching**
 
-No API keys required. No paid services. Entirely self-hostable.
+No API keys required for users. Fully personalized, highly scalable, and self-hostable.
 
 ---
 

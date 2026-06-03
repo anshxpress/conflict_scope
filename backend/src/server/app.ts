@@ -6,6 +6,7 @@ import { statsRoutes } from "./routes/stats";
 import { riskMapRoutes } from "./routes/risk-map";
 import { commodityRoutes } from "./routes/commodities";
 import { countryRoutes } from "./routes/country";
+import { newsRoutes } from "./routes/news";
 
 export function createApp() {
   const app = new Elysia()
@@ -30,6 +31,7 @@ export function createApp() {
         .use(riskMapRoutes)
         .use(commodityRoutes)
         .use(countryRoutes)
+        .use(newsRoutes)
     );
 
   return app;

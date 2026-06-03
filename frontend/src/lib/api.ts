@@ -245,4 +245,70 @@ export const api = {
       method: "POST",
     });
   },
+
+  /**
+   * Fetch personalized preference news feed.
+   */
+  getNewsFeed(params?: {
+    city?: string;
+    state?: string;
+    country?: string;
+    categories?: string;   // comma-separated e.g. "Fuel,Tax,Government"
+    minScore?: number;     // importance threshold 0–100 (default backend: 60)
+    limit?: number;
+    offset?: number;
+  }): Promise<{ data: any[]; limit: number; offset: number; minScore?: number; total?: number }> {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && value !== "") {
+          searchParams.set(key, String(value));
+        }
+      }
+    }
+    const qs = searchParams.toString();
+    return fetchJSON(`/news/feed${qs ? `?${qs}` : ""}`);
+  },
+
+  /**
+   * Fetch recommendations based on read history.
+   */
+  getRecommendations(readIds: string): Promise<{ data: any[] }> {
+    return fetchJSON(`/news/recommendations?readIds=${encodeURIComponent(readIds)}`);
+  },
+
+  /**
+   * Fetch AI summary for an article.
+   */
+  getArticleSummary(id: string): Promise<{ summary: string }> {
+    return fetchJSON(`/news/${encodeURIComponent(id)}/summary`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Fetch AI impact assessment for an article.
+   */
+  getArticleImpact(id: string): Promise<{ impact: string }> {
+    return fetchJSON(`/news/${encodeURIComponent(id)}/impact`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Chat with AI about an article.
+   */
+  chatAboutArticle(
+    id: string,
+    message: string,
+    history: Array<{ role: "user" | "model"; content: string }>
+  ): Promise<{ response: string }> {
+    return fetchJSON(`/news/${encodeURIComponent(id)}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message, history }),
+    });
+  },
 };

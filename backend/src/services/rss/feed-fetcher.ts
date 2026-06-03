@@ -122,8 +122,28 @@ const RSS_FEEDS: FeedDef[] = [
 
   // The Hindu — South Asia: India, Afghanistan, Pakistan, Sri Lanka
   {
-    name: "The Hindu",
+    name: "The Hindu International",
     url: "https://www.thehindu.com/news/international/?service=rss",
+  },
+  {
+    name: "The Hindu National",
+    url: "https://www.thehindu.com/news/national/feeder/default.rss",
+  },
+  {
+    name: "NDTV India",
+    url: "https://feeds.feedburner.com/ndtvnews-india-news",
+  },
+  {
+    name: "Times of India",
+    url: "https://timesofindia.indiatimes.com/rssfeeds/2947300.cms",
+  },
+  {
+    name: "Indian Express",
+    url: "https://indianexpress.com/section/india/feed/",
+  },
+  {
+    name: "Livemint Markets",
+    url: "https://www.livemint.com/rss/markets",
   },
 
   // South China Morning Post — China, Taiwan, North Korea, SE Asia (Myanmar, Philippines)
@@ -150,7 +170,50 @@ const RSS_FEEDS: FeedDef[] = [
     name: "Splash 247",
     url: "https://splash247.com/feed/",
   },
+
+  // ── INDIA GOVERNMENT / PIB (highest trust — official policy & scheme announcements) ──
+
+  {
+    name: "PIB India",
+    url: "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3",
+  },
+  {
+    name: "PIB Economy",
+    url: "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=25",
+  },
+
+  // ── INDIA PUBLIC INTEREST ────────────────────────────────────────────────────
+
+  {
+    name: "NDTV Business",
+    url: "https://feeds.feedburner.com/ndtvprofit-latest",
+  },
+  {
+    name: "NDTV Health",
+    url: "https://feeds.feedburner.com/ndtv/health",
+  },
+  {
+    name: "Economic Times India",
+    url: "https://economictimes.indiatimes.com/rssfeedstopstories.cms",
+  },
+  {
+    name: "ET Markets",
+    url: "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
+  },
+  {
+    name: "Livemint Economy",
+    url: "https://www.livemint.com/rss/economy",
+  },
+  {
+    name: "Business Standard India",
+    url: "https://www.business-standard.com/rss/home_page_top_stories.rss",
+  },
+  {
+    name: "Moneycontrol Personal Finance",
+    url: "https://www.moneycontrol.com/rss/personal-finance.xml",
+  },
 ];
+
 
 /**
  * Fetch all configured RSS feeds and return articles from the last N minutes.
@@ -289,11 +352,12 @@ const GDELT_TRUSTED_DOMAINS = new Set([
  * trusted domains only.
  */
 export async function fetchGdeltArticles(
-  sinceMinutes: number = 30
+  sinceMinutes: number = 30,
+  customQuery?: string
 ): Promise<FeedArticle[]> {
   const timespan = `${sinceMinutes}min`;
   const query = encodeURIComponent(
-    "(airstrike OR missile OR shelling OR bombing OR ceasefire OR invasion OR troops OR military operation)"
+    customQuery || "(India OR Delhi OR Mumbai OR Bengaluru OR Chennai OR Kolkata OR Hyderabad OR Pune)"
   );
   const url =
     `https://api.gdeltproject.org/api/v2/doc/doc` +
@@ -351,7 +415,8 @@ export async function fetchGdeltArticles(
  * Fetch conflict articles from GNews API using user key.
  */
 export async function fetchGNewsArticles(
-  sinceMinutes: number = 30
+  sinceMinutes: number = 30,
+  customQuery?: string
 ): Promise<FeedArticle[]> {
   const apiKey = process.env.GNEWS_KEY;
   if (!apiKey) {
@@ -360,7 +425,7 @@ export async function fetchGNewsArticles(
   }
 
   const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
-  const query = encodeURIComponent("airstrike OR missile OR shelling OR explosion OR ceasefire");
+  const query = encodeURIComponent(customQuery || "India");
   const url = `https://gnews.io/api/v4/search?q=${query}&lang=en&token=${apiKey}&max=15`;
 
   try {
@@ -406,7 +471,8 @@ export async function fetchGNewsArticles(
  * Fetch conflict articles from NewsAPI using user key.
  */
 export async function fetchNewsApiArticles(
-  sinceMinutes: number = 30
+  sinceMinutes: number = 30,
+  customQuery?: string
 ): Promise<FeedArticle[]> {
   const apiKey = process.env.NEWSAPI_KEY;
   if (!apiKey) {
@@ -415,7 +481,7 @@ export async function fetchNewsApiArticles(
   }
 
   const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
-  const query = encodeURIComponent("(airstrike OR missile OR shelling OR explosion OR ceasefire)");
+  const query = encodeURIComponent(customQuery || "India");
   const url = `https://newsapi.org/v2/everything?q=${query}&language=en&pageSize=15&sortBy=publishedAt&apiKey=${apiKey}`;
 
   try {
@@ -466,7 +532,8 @@ export async function fetchNewsApiArticles(
  * Fetch conflict articles from NewsData.io API using user key.
  */
 export async function fetchNewsDataArticles(
-  sinceMinutes: number = 30
+  sinceMinutes: number = 30,
+  customQuery?: string
 ): Promise<FeedArticle[]> {
   const apiKey = process.env.NEWSDATA_KEY;
   if (!apiKey) {
@@ -475,7 +542,7 @@ export async function fetchNewsDataArticles(
   }
 
   const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
-  const query = encodeURIComponent("airstrike OR missile OR shelling OR explosion OR ceasefire");
+  const query = encodeURIComponent(customQuery || "India");
   const url = `https://newsdata.io/api/1/news?apikey=${apiKey}&q=${query}&language=en`;
 
   try {

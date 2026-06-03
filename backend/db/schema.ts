@@ -104,6 +104,15 @@ export const articles = pgTable(
     countries: text("countries").array(),
     entities: text("entities").array(),
     category: varchar("category", { length: 128 }),
+    city: varchar("city", { length: 128 }),
+    state: varchar("state", { length: 128 }),
+    district: varchar("district", { length: 128 }),
+    country: varchar("country", { length: 128 }),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    categories: text("categories").array(),
+    importanceScore: integer("importance_score").notNull().default(0),
+    showInFeed: integer("show_in_feed").notNull().default(1),
     language: varchar("language", { length: 64 }).notNull().default("en"),
     duplicateCount: integer("duplicate_count").notNull().default(1),
     sourceCount: integer("source_count").notNull().default(1),
@@ -118,6 +127,8 @@ export const articles = pgTable(
     publishedIdx: index("articles_published_idx").on(table.publishedAt),
     titleHashIdx: index("articles_title_hash_idx").on(table.titleHash),
     categoryIdx: index("articles_category_idx").on(table.category),
+    importanceIdx: index("articles_importance_idx").on(table.importanceScore),
+    showInFeedIdx: index("articles_show_in_feed_idx").on(table.showInFeed),
   })
 );
 

@@ -3,6 +3,17 @@ export interface GeocodingResult {
   longitude: number;
   displayName: string;
   country: string;
+  address?: {
+    country?: string;
+    state?: string;
+    state_district?: string;
+    county?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    suburb?: string;
+    municipality?: string;
+  };
 }
 
 const NOMINATIM_BASE =
@@ -94,7 +105,7 @@ export async function geocodeLocation(
       lat: string;
       lon: string;
       display_name: string;
-      address?: { country?: string };
+      address?: any;
     }>;
 
     if (!results.length) {
@@ -107,6 +118,7 @@ export async function geocodeLocation(
       longitude: parseFloat(results[0].lon),
       displayName: results[0].display_name,
       country: results[0].address?.country ?? locationName,
+      address: results[0].address,
     };
 
     geocodeCache.set(cacheKey, result);

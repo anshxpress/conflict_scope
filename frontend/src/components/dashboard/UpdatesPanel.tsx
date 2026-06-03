@@ -19,11 +19,11 @@ const UPDATES: Update[] = [
   },
   {
     status: "in-progress",
-    label: "Custom alert thresholds for oil, gold & grain spikes",
+    label: "Personalized News Dashboard",
   },
   {
     status: "in-progress",
-    label: "Real-time news and impact on india due to war",
+    label: "Chain Effect and AI implementation",
   },
 ];
 

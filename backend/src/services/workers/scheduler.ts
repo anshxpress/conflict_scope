@@ -1,7 +1,8 @@
 import { db, schema } from "../../../db";
 import { eq, gte, sql } from "drizzle-orm";
-import { runPipelineForSource } from "./pipeline";
+import { runPipelineForCategory } from "./pipeline";
 import { recalculateConnections } from "./connections";
+import { CATEGORY_ROUTES } from "../news/category_router";
 
 const TICK_INTERVAL = 2 * 60 * 1000; // 2 minutes tick
 
@@ -22,6 +23,7 @@ let isRunningMap: Record<string, boolean> = {
 };
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
+let rotationIndex = 0;
 
 /**
  * Ensures all sources have a budget entry in the database.
@@ -111,116 +113,8 @@ async function detectBurstMode(): Promise<boolean> {
 }
 
 /**
- * Evaluates whether a source should be fetched, based on active interval, burst mode, and quota status.
- */
-async function evaluateAndFetchSource(source: string, isBurstMode: boolean): Promise<void> {
-  if (isRunningMap[source]) return;
-
-  const [budget] = await db
-    .select()
-    .from(schema.sourceBudget)
-    .where(eq(schema.sourceBudget.source, source))
-    .limit(1);
-
-  if (!budget) return;
-
-  // 1. Quota constraints checks
-  if (budget.enabled === 0) {
-    console.log(`[Scheduler] Source ${source} is disabled due to failures. Skipping.`);
-    return;
-  }
-
-  const now = new Date();
-  if (budget.cooldownUntil && now < budget.cooldownUntil) {
-    console.log(`[Scheduler] Source ${source} is in cooldown until ${budget.cooldownUntil.toISOString()}. Skipping.`);
-    return;
-  }
-
-  // Quota usage modes
-  const remainingPct = budget.remaining / budget.dailyLimit;
-  if (remainingPct < 0.20) {
-    console.log(`[Scheduler] Quota pause active for ${source} (<20% remaining). Skipping.`);
-    return;
-  }
-
-  const isSlowMode = remainingPct >= 0.20 && remainingPct <= 0.50;
-
-  // 2. Determine target fetch interval based on Burst Mode & Quota Slow Mode
-  let baseIntervalMin = 15; // default fallback
-
-  if (source === "rss") {
-    baseIntervalMin = isBurstMode ? 5 : 15;
-  } else if (source === "gdelt") {
-    baseIntervalMin = isBurstMode ? 3 : 10;
-  } else if (source === "gnews") {
-    baseIntervalMin = isBurstMode ? 10 : 30;
-  } else if (source === "newsapi") {
-    baseIntervalMin = isBurstMode ? 20 : 45;
-  } else if (source === "youtube") {
-    // YouTube is "event only", meaning we do not fetch it in regular scheduler ticks
-    // It is fetched dynamically on-demand inside the Country API.
-    return;
-  }
-
-  // Double interval if in slow mode
-  if (isSlowMode) {
-    baseIntervalMin *= 2;
-    console.log(`[Scheduler] Quota Slow Mode active for ${source} (20-50% remaining). Interval doubled to ${baseIntervalMin}m.`);
-  }
-
-  // 3. Check time since last fetch
-  if (budget.lastFetch) {
-    const elapsedMs = now.getTime() - new Date(budget.lastFetch).getTime();
-    const intervalMs = baseIntervalMin * 60 * 1000;
-    if (elapsedMs < intervalMs) {
-      // Not yet time
-      return;
-    }
-  }
-
-  // 4. Trigger Ingestion
-  isRunningMap[source] = true;
-  console.log(`[Scheduler] Triggering fetch for ${source} (${isBurstMode ? "BURST" : "NORMAL"} mode, interval: ${baseIntervalMin}m)`);
-
-  try {
-    const lookbackMinutes = baseIntervalMin;
-    await runPipelineForSource(source as any, lookbackMinutes);
-
-    // Update lastFetch and reset failures
-    await db
-      .update(schema.sourceBudget)
-      .set({
-        lastFetch: new Date(),
-        consecutiveFailures: 0,
-      })
-      .where(eq(schema.sourceBudget.source, source));
-  } catch (err) {
-    console.error(`[Scheduler] Error running pipeline for ${source}:`, err);
-    
-    // Quota Engine failure cooldown rules
-    const nextFailures = budget.consecutiveFailures + 1;
-    const updateObj: Record<string, any> = {
-      consecutiveFailures: nextFailures,
-    };
-
-    if (nextFailures >= 3) {
-      const cooldownPeriod = new Date(Date.now() + 30 * 60 * 1000); // 30 mins cooldown
-      updateObj.enabled = 0;
-      updateObj.cooldownUntil = cooldownPeriod;
-      console.warn(`[QuotaEngine] Source ${source} failed 3 times consecutively. Disabling & setting 30-minute cooldown.`);
-    }
-
-    await db
-      .update(schema.sourceBudget)
-      .set(updateObj)
-      .where(eq(schema.sourceBudget.source, source));
-  } finally {
-    isRunningMap[source] = false;
-  }
-}
-
-/**
  * Scheduler tick executed every 2 minutes.
+ * Triggers category-specific pipeline on a rotating schedule.
  */
 async function onSchedulerTick(): Promise<void> {
   try {
@@ -232,11 +126,15 @@ async function onSchedulerTick(): Promise<void> {
       console.log(`[Scheduler] [BURST MODE ACTIVE] Higher-priority keywords detected in recent articles.`);
     }
 
-    // Evaluate GDELT, RSS, GNews, NewsAPI
-    const activeSources = ["rss", "gdelt", "gnews", "newsapi"];
-    await Promise.all(
-      activeSources.map((source) => evaluateAndFetchSource(source, isBurstMode))
-    );
+    const categories = Object.keys(CATEGORY_ROUTES);
+    if (categories.length > 0) {
+      const targetCategory = categories[rotationIndex % categories.length];
+      rotationIndex = (rotationIndex + 1) % categories.length;
+
+      console.log(`[Scheduler] [ROTATION] Triggering ingestion for category="${targetCategory}" (lookback: ${isBurstMode ? "15m" : "30m"})`);
+      const lookback = isBurstMode ? 15 : 30;
+      await runPipelineForCategory(targetCategory, lookback);
+    }
 
     // Recalculate country influence connections
     await recalculateConnections();

@@ -8,8 +8,9 @@ import {
   fetchYouTubeArticles,
 } from "../rss/feed-fetcher";
 import { getEmbedding, cosineSimilarity } from "../nlp/embeddings";
-import { classifyArticle } from "../nlp/classifier";
+import { classifyArticleMultiLabel, scoreArticleImportance } from "../nlp/classifier";
 import { detectCountries } from "../nlp/country-detector";
+import { extractLocation } from "../nlp/location-engine";
 import { geocodeLocation } from "../geocoding/nominatim";
 import { mapEventToCommodities } from "../commodities/impact-mapping";
 import { computeCommodityCorrelations } from "../commodities/correlation-engine";
@@ -141,12 +142,498 @@ async function flushMemoryBuffer() {
 /**
  * Main platform pipeline entry point (delegates to individual source ingestion pipelines).
  */
+import { CATEGORY_ROUTES } from "../news/category_router";
+import { fetchNews } from "../news/fetch_engine";
+
+/**
+ * Main category-centric pipeline runner.
+ * Sequentially runs ingestion pipelines for all defined categories.
+ */
 export async function runPipeline(sinceMinutes = 30): Promise<number> {
-  const rssCount = await runPipelineForSource("rss", sinceMinutes);
-  const gdeltCount = await runPipelineForSource("gdelt", sinceMinutes);
-  const gnewsCount = await runPipelineForSource("gnews", sinceMinutes);
-  const newsapiCount = await runPipelineForSource("newsapi", sinceMinutes);
-  return rssCount + gdeltCount + gnewsCount + newsapiCount;
+  console.log(`\n[Pipeline] Starting Category-Centric Ingestion for all categories...`);
+  let totalStored = 0;
+  for (const category of Object.keys(CATEGORY_ROUTES)) {
+    try {
+      const count = await runPipelineForCategory(category, sinceMinutes);
+      totalStored += count;
+    } catch (err) {
+      console.error(`[Pipeline] Failed running pipeline for category "${category}":`, err);
+    }
+  }
+  return totalStored;
+}
+
+/**
+ * Ingests and processes articles for a specific target category.
+ */
+export async function runPipelineForCategory(
+  categoryName: string,
+  sinceMinutes = 30
+): Promise<number> {
+  console.log(`\n[Pipeline] Starting Ingestion for Category "${categoryName}" (lookback: ${sinceMinutes}m)...`);
+  const startTime = Date.now();
+
+  let rawArticlesSaved = 0;
+  let articlesStored = 0;
+  let duplicatesMerged = 0;
+  const affectedCountries = new Set<string>();
+
+  try {
+    // Attempt to flush memory buffer if DB is up
+    await flushMemoryBuffer();
+  } catch (dbTestErr) {
+    console.warn("[Pipeline] Database check failed, skipping buffer flush.", dbTestErr);
+  }
+
+  // 1. Fetch raw articles from category query engine
+  let rawArticles: any[] = [];
+  try {
+    rawArticles = await fetchNews(categoryName, sinceMinutes);
+  } catch (fetchErr) {
+    console.error(`[Pipeline] Failed to fetch articles for category "${categoryName}":`, fetchErr);
+    return 0;
+  }
+
+  console.log(`[Pipeline] Category "${categoryName}" returned ${rawArticles.length} raw articles.`);
+  if (rawArticles.length === 0) {
+    return 0;
+  }
+
+  // Load recent embeddings from last 24h for Layer 3 semantic checks
+  let recentEmbeddings: any[] = [];
+  try {
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    recentEmbeddings = await db
+      .select({
+        id: schema.articles.id,
+        title: schema.articles.title,
+        body: schema.articles.body,
+        description: schema.articles.description,
+        url: schema.articles.url,
+        titleHash: schema.articles.titleHash,
+        duplicateCount: schema.articles.duplicateCount,
+        sourceCount: schema.articles.sourceCount,
+        embedding: schema.articleEmbeddings.embedding,
+        categories: schema.articles.categories,
+      })
+      .from(schema.articleEmbeddings)
+      .innerJoin(schema.articles, eq(schema.articleEmbeddings.articleId, schema.articles.id))
+      .where(gte(schema.articleEmbeddings.createdAt, cutoff24h));
+  } catch (dbErr) {
+    console.warn("[Pipeline] Failed to load recent embeddings due to DB error. Dynamic semantic deduplication will be bypassed.", dbErr);
+  }
+
+  for (const raw of rawArticles) {
+    try {
+      // --- UNIFIED NORMALIZATION OBJECT ---
+      const normalized = {
+        title: raw.title || "",
+        content: raw.content || "",
+        description: raw.content ? raw.content.slice(0, 300) : "",
+        body: raw.content || "",
+        url: raw.link || raw.url,
+        source: raw.sourceName || "Unknown",
+        publishedAt: raw.publishedDate || new Date(),
+        language: "en",
+        countries: [] as string[],
+        entities: [] as string[],
+        category: categoryName,
+      };
+
+      // Extract location using the new Location Engine
+      const loc = await extractLocation(normalized.title, normalized.description, normalized.body);
+      if (loc) {
+        normalized.countries = [loc.country];
+      } else {
+        const countriesList = detectCountries(normalized.title, normalized.description, normalized.body);
+        if (countriesList.length === 0) {
+          continue;
+        }
+        normalized.countries = countriesList;
+      }
+
+      // Generate embedding for Stage 3 semantic checks + category classification
+      let newEmbedding: number[] | null = null;
+      try {
+        const textToEmbed = `${normalized.title} ${normalized.description}`;
+        newEmbedding = await getEmbedding(textToEmbed);
+      } catch (embedErr) {
+        console.warn("[Pipeline] Embedding generation failed.", embedErr);
+      }
+
+      // Classify category into multi-label groups
+      const assignedCategories = await classifyArticleMultiLabel(
+        normalized.title,
+        normalized.description,
+        normalized.body,
+        newEmbedding || undefined
+      );
+
+      // Ensure the current category is included in assignedCategories
+      if (!assignedCategories.includes(categoryName)) {
+        assignedCategories.push(categoryName);
+      }
+
+      // Run the Importance Engine: score 0–100
+      const importanceResult = scoreArticleImportance(
+        normalized.title,
+        normalized.description,
+        normalized.body,
+        assignedCategories,
+        normalized.source,
+        normalized.publishedAt,
+        loc,
+        "", // user city — not available at pipeline time; geo uses article location
+        ""
+      );
+
+      // Hard drop: score < 30 (celebrity, gossip, no-impact)
+      if (importanceResult.score < 30) {
+        console.log(`[ImportanceEngine] Dropped (score=${importanceResult.score}): "${normalized.title}" — ${importanceResult.reasons.join(" | ")}`);
+        continue;
+      }
+
+      normalized.category = categoryName;
+
+      // Save to raw_articles audit table (ignore if DB is down)
+      try {
+        await db
+          .insert(schema.rawArticles)
+          .values({
+            title: normalized.title,
+            content: normalized.content,
+            url: normalized.url,
+            source: normalized.source,
+            publishedAt: normalized.publishedAt,
+          })
+          .onConflictDoNothing({ target: schema.rawArticles.url });
+        rawArticlesSaved++;
+      } catch (rawErr) {
+        // Safe to ignore raw audit failure
+      }
+
+      // ── DEDUPLICATION LAYER 1: Exact URL Match ──
+      let existingByUrl: any = null;
+      try {
+        [existingByUrl] = await db
+          .select({
+            id: schema.articles.id,
+            duplicateCount: schema.articles.duplicateCount,
+            sourceCount: schema.articles.sourceCount,
+            body: schema.articles.body,
+            categories: schema.articles.categories,
+          })
+          .from(schema.articles)
+          .where(eq(schema.articles.url, normalized.url))
+          .limit(1);
+      } catch (dbErr) {
+        // If DB down, existingByUrl remains null
+      }
+
+      if (existingByUrl) {
+        try {
+          const newBodyLen = normalized.content.length;
+          const oldBodyLen = (existingByUrl.body || "").length;
+          const existingCats = existingByUrl.categories || [];
+          const mergedCats = Array.from(new Set([...existingCats, ...assignedCategories]));
+
+          const updateObj: Record<string, any> = {
+            duplicateCount: existingByUrl.duplicateCount + 1,
+            sourceCount: existingByUrl.sourceCount + 1,
+            categories: mergedCats,
+          };
+          if (newBodyLen > oldBodyLen) {
+            updateObj.body = normalized.content;
+            updateObj.description = normalized.description;
+          }
+          await db
+            .update(schema.articles)
+            .set(updateObj)
+            .where(eq(schema.articles.id, existingByUrl.id));
+          duplicatesMerged++;
+        } catch (dbErr) {
+          console.error("[Pipeline] DB failed during URL deduplication update:", dbErr);
+        }
+        continue;
+      }
+
+      // ── DEDUPLICATION LAYER 2: Normalized Title Hash ──
+      const titleHash = normalizeTitle(normalized.title);
+      let existingByTitle: any = null;
+      if (titleHash.length > 0) {
+        try {
+          [existingByTitle] = await db
+            .select({
+              id: schema.articles.id,
+              duplicateCount: schema.articles.duplicateCount,
+              sourceCount: schema.articles.sourceCount,
+              body: schema.articles.body,
+              categories: schema.articles.categories,
+            })
+            .from(schema.articles)
+            .where(eq(schema.articles.titleHash, titleHash))
+            .limit(1);
+        } catch (dbErr) {
+          // If DB down, existingByTitle remains null
+        }
+      }
+
+      if (existingByTitle) {
+        try {
+          const newBodyLen = normalized.content.length;
+          const oldBodyLen = (existingByTitle.body || "").length;
+          const existingCats = existingByTitle.categories || [];
+          const mergedCats = Array.from(new Set([...existingCats, ...assignedCategories]));
+
+          const updateObj: Record<string, any> = {
+            duplicateCount: existingByTitle.duplicateCount + 1,
+            sourceCount: existingByTitle.sourceCount + 1,
+            categories: mergedCats,
+          };
+          if (newBodyLen > oldBodyLen) {
+            updateObj.body = normalized.content;
+            updateObj.description = normalized.description;
+          }
+          await db
+            .update(schema.articles)
+            .set(updateObj)
+            .where(eq(schema.articles.id, existingByTitle.id));
+          duplicatesMerged++;
+        } catch (dbErr) {
+          console.error("[Pipeline] DB failed during Title Hash deduplication update:", dbErr);
+        }
+        continue;
+      }
+
+      // ── DEDUPLICATION LAYER 3: Semantic Embeddings similarity ──
+      let semanticDuplicate = false;
+      let matchedArticle: any = null;
+      let matchedSimilarity = 0;
+
+      if (newEmbedding && recentEmbeddings.length > 0) {
+        for (const existing of recentEmbeddings) {
+          const sim = cosineSimilarity(newEmbedding, existing.embedding);
+          if (sim >= 0.85) {
+            semanticDuplicate = true;
+            if (sim > matchedSimilarity) {
+              matchedSimilarity = sim;
+              matchedArticle = existing;
+            }
+          }
+        }
+      }
+
+      if (semanticDuplicate && matchedArticle) {
+        if (matchedSimilarity >= 0.92) {
+          try {
+            const newBodyLen = normalized.content.length;
+            const oldBodyLen = (matchedArticle.body || "").length;
+            const existingCats = matchedArticle.categories || [];
+            const mergedCats = Array.from(new Set([...existingCats, ...assignedCategories]));
+
+            const updateObj: Record<string, any> = {
+              duplicateCount: matchedArticle.duplicateCount + 1,
+              sourceCount: matchedArticle.sourceCount + 1,
+              categories: mergedCats,
+            };
+            if (newBodyLen > oldBodyLen) {
+              updateObj.body = normalized.content;
+              updateObj.description = normalized.description;
+            }
+            await db
+              .update(schema.articles)
+              .set(updateObj)
+              .where(eq(schema.articles.id, matchedArticle.id));
+            duplicatesMerged++;
+          } catch (dbErr) {
+            console.error("[Pipeline] DB failed during Semantic duplicate update:", dbErr);
+          }
+          continue;
+        }
+      }
+
+      // ── UNIQUE ARTICLE PROCESSING (SAVE TO DATABASE) ──
+      let storedArticleId = "";
+      try {
+        const [storedArticle] = await db
+          .insert(schema.articles)
+          .values({
+            title: normalized.title,
+            content: normalized.content,
+            description: normalized.description,
+            body: normalized.body,
+            source: normalized.source,
+            url: normalized.url,
+            publishedAt: normalized.publishedAt,
+            countries: normalized.countries,
+            category: normalized.category,
+            language: normalized.language,
+            titleHash,
+            city: loc?.city || null,
+            state: loc?.state || null,
+            district: loc?.district || null,
+            country: loc?.country || null,
+            latitude: loc?.latitude || null,
+            longitude: loc?.longitude || null,
+            categories: assignedCategories,
+            importanceScore: importanceResult.score,
+            showInFeed: importanceResult.showInFeed ? 1 : 0,
+          })
+          .returning({ id: schema.articles.id });
+
+        storedArticleId = storedArticle.id;
+
+        // Store high-dimensional embedding if available
+        if (newEmbedding) {
+          await db
+            .insert(schema.articleEmbeddings)
+            .values({
+              articleId: storedArticle.id,
+              embedding: newEmbedding,
+            });
+        }
+
+        articlesStored++;
+      } catch (dbErr) {
+        console.error(`[Pipeline] Database insertion failed for "${normalized.title}".`, dbErr);
+        continue;
+      }
+
+      // ── Legacy Event Mapping & Commodity Correlation ──
+      if (storedArticleId) {
+        try {
+          const firstCountry = normalized.countries[0] || "India";
+          const lat = loc?.latitude || COUNTRY_COORDS[firstCountry]?.[0] || 20.0;
+          const lng = loc?.longitude || COUNTRY_COORDS[firstCountry]?.[1] || 77.0;
+
+          let legacyEventType: any = "armed_conflict";
+          const titleLower = normalized.title.toLowerCase();
+          if (titleLower.includes("airstrike") || titleLower.includes("bombing") || titleLower.includes("bomb")) {
+            legacyEventType = "airstrike";
+          } else if (titleLower.includes("missile") || titleLower.includes("rocket")) {
+            legacyEventType = "missile_strike";
+          } else if (titleLower.includes("drone") || titleLower.includes("uav")) {
+            legacyEventType = "drone_strike";
+          } else if (titleLower.includes("explosion") || titleLower.includes("blast")) {
+            legacyEventType = "explosion";
+          } else if (titleLower.includes("refinery") || titleLower.includes("pipeline") || titleLower.includes("port") || titleLower.includes("power")) {
+            legacyEventType = "infrastructure_attack";
+          }
+
+          const [storedEvent] = await db
+            .insert(schema.events)
+            .values({
+              title: normalized.title,
+              description: normalized.description,
+              eventType: legacyEventType,
+              country: firstCountry,
+              latitude: lat,
+              longitude: lng,
+              timestamp: normalized.publishedAt,
+              confidenceScore: "high",
+              sourceUrl: normalized.url,
+              articleId: storedArticleId,
+            })
+            .returning({ id: schema.events.id });
+
+          await db.insert(schema.sources).values({
+            eventId: storedEvent.id,
+            sourceName: normalized.source,
+            articleUrl: normalized.url,
+            publishedDate: normalized.publishedAt,
+          });
+
+          const impactsList = [{ severity: "medium" as const }];
+
+          const commodityMatches = mapEventToCommodities({
+            title: normalized.title,
+            description: normalized.body,
+            eventType: legacyEventType,
+            impacts: impactsList,
+          });
+
+          if (commodityMatches.length > 0) {
+            for (const match of commodityMatches) {
+              await db
+                .insert(schema.eventCommodityRefs)
+                .values({
+                  eventId: storedEvent.id,
+                  commodity: match.commodity,
+                  category: match.category,
+                  triggerType: match.triggerType,
+                  leaderName: match.leaderName,
+                  policyAction: match.policyAction,
+                  confidenceScore: match.confidenceScore,
+                  rationale: match.rationale,
+                  createdAt: normalized.publishedAt,
+                });
+            }
+
+            await computeCommodityCorrelations({
+              eventId: storedEvent.id,
+              eventTimestamp: normalized.publishedAt,
+              impacts: impactsList,
+              matches: commodityMatches,
+            });
+          }
+        } catch (err) {
+          console.error(`[Pipeline] Failed legacy event mapping for "${normalized.title}":`, err);
+        }
+      }
+
+      // ── Connect event to countries ──
+      for (const country of normalized.countries) {
+        affectedCountries.add(country);
+
+        try {
+          await db
+            .insert(schema.countries)
+            .values({
+              id: country,
+              riskLevel: "green",
+              riskScore: 0.0,
+              newsCount: 0,
+              lastUpdated: new Date(),
+            })
+            .onConflictDoNothing({ target: schema.countries.id });
+
+          if (storedArticleId) {
+            await db
+              .insert(schema.countryEvents)
+              .values({
+                countryId: country,
+                articleId: storedArticleId,
+                category: categoryName,
+                severity: 1.0,
+                publishedAt: normalized.publishedAt,
+              });
+          }
+        } catch (err) {
+          console.error(`[Pipeline] Failed linking country relation for ${country}:`, err);
+        }
+      }
+
+    } catch (err) {
+      console.error(`[Pipeline] Error processing raw article "${raw.title}":`, err);
+    }
+  }
+
+  if (affectedCountries.size > 0) {
+    console.log(`[Pipeline] Recalculating metrics and caching for ${affectedCountries.size} affected countries...`);
+    for (const countryName of affectedCountries) {
+      try {
+        await updateCountryMetrics(countryName);
+      } catch (err) {
+        console.error(`[Pipeline] Dynamic metrics compilation failed for ${countryName}:`, err);
+      }
+    }
+  }
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`[Pipeline] Category "${categoryName}" execution complete in ${duration}s.`);
+  console.log(`[Pipeline] Audited Raw Articles: ${rawArticlesSaved}, Unique Stored: ${articlesStored}, Duplicates Blocked: ${duplicatesMerged}`);
+
+  return articlesStored;
 }
 
 /**
@@ -238,16 +725,55 @@ export async function runPipelineForSource(
         category: "",
       };
 
-      // Extract countries using headline prioritized NER
-      const countriesList = detectCountries(normalized.title, normalized.description, normalized.body);
-      if (countriesList.length === 0) {
-        // Skip if no country detected
+      // Extract location using the new Location Engine
+      const loc = await extractLocation(normalized.title, normalized.description, normalized.body);
+      if (loc) {
+        normalized.countries = [loc.country];
+      } else {
+        const countriesList = detectCountries(normalized.title, normalized.description, normalized.body);
+        if (countriesList.length === 0) {
+          continue;
+        }
+        normalized.countries = countriesList;
+      }
+
+      // Generate embedding for Stage 3 semantic checks + category classification
+      let newEmbedding: number[] | null = null;
+      try {
+        const textToEmbed = `${normalized.title} ${normalized.description}`;
+        newEmbedding = await getEmbedding(textToEmbed);
+      } catch (embedErr) {
+        console.warn("[Pipeline] Embedding generation failed.", embedErr);
+      }
+
+      // Classify category into multi-label groups
+      const assignedCategories = await classifyArticleMultiLabel(
+        normalized.title,
+        normalized.description,
+        normalized.body,
+        newEmbedding || undefined
+      );
+
+      // Run the Importance Engine: score 0–100
+      const importanceResult = scoreArticleImportance(
+        normalized.title,
+        normalized.description,
+        normalized.body,
+        assignedCategories,
+        normalized.source,
+        normalized.publishedAt,
+        loc,
+        "", // user city — not available at pipeline time; geo uses article location
+        ""
+      );
+
+      // Hard drop: score < 30 (celebrity, gossip, no-impact)
+      if (importanceResult.score < 30) {
+        console.log(`[ImportanceEngine] Dropped (score=${importanceResult.score}): "${normalized.title}" — ${importanceResult.reasons.join(" | ")}`);
         continue;
       }
-      normalized.countries = countriesList;
 
-      // Classify category into 10 groups
-      const category = classifyArticle(normalized.title, normalized.description, normalized.body);
+      const category = assignedCategories[0] || "Politics";
       normalized.category = category;
 
       // Save to raw_articles audit table (ignore if DB is down)
@@ -351,13 +877,7 @@ export async function runPipelineForSource(
       }
 
       // ── DEDUPLICATION LAYER 3: Semantic Embeddings similarity (sentence-transformers) ──
-      let newEmbedding: number[] | null = null;
-      try {
-        const textToEmbed = `${normalized.title} ${normalized.description}`;
-        newEmbedding = await getEmbedding(textToEmbed);
-      } catch (embedErr) {
-        console.warn("[Pipeline] Embedding generation failed. Falling back to Stage 2 Title Deduplication only.", embedErr);
-      }
+      // Embedding was generated earlier for classification and is reused here
 
       let semanticDuplicate = false;
       let matchedArticle: any = null;
@@ -424,6 +944,15 @@ export async function runPipelineForSource(
             category: normalized.category,
             language: normalized.language,
             titleHash,
+            city: loc?.city || null,
+            state: loc?.state || null,
+            district: loc?.district || null,
+            country: loc?.country || null,
+            latitude: loc?.latitude || null,
+            longitude: loc?.longitude || null,
+            categories: assignedCategories,
+            importanceScore: importanceResult.score,
+            showInFeed: importanceResult.showInFeed ? 1 : 0,
           })
           .returning({ id: schema.articles.id });
 
@@ -464,8 +993,9 @@ export async function runPipelineForSource(
       // ── Legacy Event Mapping & Commodity Correlation ──
       if (storedArticleId) {
         try {
-          const firstCountry = countriesList[0];
-          const [lat, lng] = COUNTRY_COORDS[firstCountry] || [20.0, 77.0];
+          const firstCountry = normalized.countries[0] || "India";
+          const lat = loc?.latitude || COUNTRY_COORDS[firstCountry]?.[0] || 20.0;
+          const lng = loc?.longitude || COUNTRY_COORDS[firstCountry]?.[1] || 77.0;
 
           let legacyEventType: any = "armed_conflict";
           const titleLower = normalized.title.toLowerCase();
@@ -543,7 +1073,7 @@ export async function runPipelineForSource(
       }
 
       // ── Connect event to countries ──
-      for (const country of countriesList) {
+      for (const country of normalized.countries) {
         affectedCountries.add(country);
 
         try {
