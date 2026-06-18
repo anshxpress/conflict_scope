@@ -338,8 +338,9 @@ const MapView: FC<MapViewProps> = ({
     }
 
     // Commodity Resources Markers (Placed slightly north of country centroids)
-    if (resources && resources.length > 0) {
+    if (resources && resources.length > 0 && selectedCountry) {
       for (const entry of resources) {
+        if (entry.country.toLowerCase() !== selectedCountry.toLowerCase()) continue;
         if (!entry.resources || entry.resources.length === 0) continue;
         const coords = COUNTRY_CENTROIDS[entry.country];
         if (!coords) continue;

@@ -19,7 +19,6 @@ import InfrastructureLayerToggle from "@/components/dashboard/InfrastructureLaye
 import ConflictStatsPanel from "@/components/dashboard/ConflictStatsPanel";
 import LiveEventFeed from "@/components/dashboard/LiveEventFeed";
 import CountryRiskPanel from "@/components/dashboard/CountryRiskPanel";
-import NotificationBell from "@/components/dashboard/NotificationBell";
 import UpdatesPanel from "@/components/dashboard/UpdatesPanel";
 import CommodityPanel from "@/components/dashboard/CommodityPanel";
 import CommodityInsightsPanel from "@/components/dashboard/CommodityInsightsPanel";
@@ -113,9 +112,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedCity = localStorage.getItem("user-city");
-      const savedState = localStorage.getItem("user-state");
-      if (savedCity && savedState) {
+      const configured = localStorage.getItem("user-location-configured");
+      if (configured === "true") {
+        const savedCity = localStorage.getItem("user-city") || "";
+        const savedState = localStorage.getItem("user-state") || "";
         setSelectedCity(savedCity);
         setSelectedState(savedState);
       } else {
@@ -149,6 +149,17 @@ export default function DashboardPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem("user-city", city);
       localStorage.setItem("user-state", state);
+      localStorage.setItem("user-location-configured", "true");
+    }
+  };
+
+  const handleClearLocation = () => {
+    setSelectedCity("");
+    setSelectedState("");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("user-city", "");
+      localStorage.setItem("user-state", "");
+      localStorage.setItem("user-location-configured", "true");
     }
   };
 
@@ -200,7 +211,7 @@ export default function DashboardPage() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [warPanelOpen, setWarPanelOpen] = useState(false);
-  
+
   // Selected commodity opens right panel with full analysis
   const [selectedCommodity, setSelectedCommodity] =
     useState<CommodityName | null>(null);
@@ -258,7 +269,7 @@ export default function DashboardPage() {
     mutate: refreshFeed,
     isValidating: isFeedLoading,
   } = useSWR(
-    indiaFeedOpen && activeTab !== "foryou" ? ["newsFeed", feedParams] : null,
+    ["newsFeed", feedParams],
     () => api.getNewsFeed(feedParams),
     { revalidateOnFocus: false, refreshInterval: 60000 }
   );
@@ -396,25 +407,25 @@ export default function DashboardPage() {
   };
 
   const CAT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-    Politics:      { bg: "bg-red-500/10",     text: "text-red-400",     border: "border-red-500/20" },
-    Economy:       { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
-    Jobs:          { bg: "bg-sky-500/10",     text: "text-sky-400",     border: "border-sky-500/20" },
-    Technology:    { bg: "bg-violet-500/10", text: "text-violet-400",  border: "border-violet-500/20" },
-    Health:        { bg: "bg-pink-500/10",   text: "text-pink-400",    border: "border-pink-500/20" },
-    Education:     { bg: "bg-amber-500/10",  text: "text-amber-400",   border: "border-amber-500/20" },
-    Markets:       { bg: "bg-teal-500/10",   text: "text-teal-400",    border: "border-teal-500/20" },
-    Transport:     { bg: "bg-orange-500/10", text: "text-orange-400",  border: "border-orange-500/20" },
-    Weather:       { bg: "bg-cyan-500/10",   text: "text-cyan-400",    border: "border-cyan-500/20" },
-    Safety:        { bg: "bg-rose-500/10",   text: "text-rose-400",    border: "border-rose-500/20" },
-    Local:         { bg: "bg-lime-500/10",   text: "text-lime-400",    border: "border-lime-500/20" },
-    International: { bg: "bg-indigo-500/10", text: "text-indigo-400",  border: "border-indigo-500/20" },
-    Government:    { bg: "bg-indigo-500/10",  text: "text-indigo-400",  border: "border-indigo-500/20" },
-    Tax:           { bg: "bg-amber-500/10",   text: "text-amber-400",   border: "border-amber-500/20" },
-    Fuel:          { bg: "bg-rose-500/10",    text: "text-rose-400",    border: "border-rose-500/20" },
-    Banking:       { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
-    Housing:       { bg: "bg-cyan-500/10",    text: "text-cyan-400",    border: "border-cyan-500/20" },
-    Utilities:     { bg: "bg-yellow-500/10",  text: "text-yellow-400",  border: "border-yellow-500/20" },
-    Infrastructure: { bg: "bg-violet-500/10", text: "text-violet-400",  border: "border-violet-500/20" },
+    Politics: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" },
+    Economy: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
+    Jobs: { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20" },
+    Technology: { bg: "bg-violet-500/10", text: "text-violet-400", border: "border-violet-500/20" },
+    Health: { bg: "bg-pink-500/10", text: "text-pink-400", border: "border-pink-500/20" },
+    Education: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" },
+    Markets: { bg: "bg-teal-500/10", text: "text-teal-400", border: "border-teal-500/20" },
+    Transport: { bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/20" },
+    Weather: { bg: "bg-cyan-500/10", text: "text-cyan-400", border: "border-cyan-500/20" },
+    Safety: { bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20" },
+    Local: { bg: "bg-lime-500/10", text: "text-lime-400", border: "border-lime-500/20" },
+    International: { bg: "bg-indigo-500/10", text: "text-indigo-400", border: "border-indigo-500/20" },
+    Government: { bg: "bg-indigo-500/10", text: "text-indigo-400", border: "border-indigo-500/20" },
+    Tax: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" },
+    Fuel: { bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20" },
+    Banking: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
+    Housing: { bg: "bg-cyan-500/10", text: "text-cyan-400", border: "border-cyan-500/20" },
+    Utilities: { bg: "bg-yellow-500/10", text: "text-yellow-400", border: "border-yellow-500/20" },
+    Infrastructure: { bg: "bg-violet-500/10", text: "text-violet-400", border: "border-violet-500/20" },
   };
 
   const getScope = (art: any): { label: string; icon: string; cls: string } => {
@@ -502,7 +513,6 @@ export default function DashboardPage() {
         {/* Badges: event count + active hot-zone count */}
         <div className="ml-auto flex items-center gap-3">
           <UpdatesPanel />
-          <NotificationBell />
           {/* TV toggle */}
           <button
             onClick={() => setWarPanelOpen((v) => !v)}
@@ -538,7 +548,7 @@ export default function DashboardPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
             </span>
-            <span className="text-xs text-gray-500">Live Pipeline</span>
+            <span className="text-xs text-gray-500">Live News</span>
           </div>
         </div>
       </header>
@@ -560,22 +570,20 @@ export default function DashboardPage() {
       <main id="main-content" className="relative flex flex-1 overflow-hidden" tabIndex={-1}>
         {/* ── Left Sidebar (pinned) ── */}
         <div
-          className={`relative shrink-0 flex flex-col transition-all duration-300 bg-cs-panel border-r border-cs-border z-40 ${
-            leftPanelOpen ? "w-72" : "w-0"
-          } overflow-hidden`}
+          className={`relative shrink-0 flex flex-col transition-all duration-300 bg-cs-panel border-r border-cs-border z-40 ${leftPanelOpen ? "w-72" : "w-0"
+            } overflow-hidden`}
         >
-          <SmoothScroll className="w-72 flex flex-col flex-1 min-h-0 overflow-y-auto p-3 gap-3">
+          <SmoothScroll className="w-72 flex flex-col flex-1 min-h-0 overflow-y-auto py-3 gap-3">
             {/* Sidebar tabs */}
-            <div className="flex bg-cs-dark rounded-lg p-0.5 shrink-0">
+            <div className="flex bg-cs-dark rounded-lg p-0.5 shrink-0 mx-3">
               {(["feed", "filters", "stats"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setSidebarTab(tab)}
-                  className={`flex-1 text-xs py-1.5 rounded-md capitalize transition-colors ${
-                    sidebarTab === tab
-                      ? "bg-cs-panel text-gray-200"
-                      : "text-gray-500 hover:text-gray-400"
-                  }`}
+                  className={`flex-1 text-xs py-1.5 rounded-md capitalize transition-colors ${sidebarTab === tab
+                    ? "bg-cs-panel text-gray-200"
+                    : "text-gray-500 hover:text-gray-400"
+                    }`}
                 >
                   {tab}
                 </button>
@@ -585,15 +593,30 @@ export default function DashboardPage() {
             {sidebarTab === "feed" && (
               <LiveEventFeed
                 events={events}
+                articles={feedData?.data ?? []}
+                selectedCategories={selectedCategories}
+                selectedCity={selectedCity}
+                selectedState={selectedState}
                 onEventSelect={handleEventSelect}
                 selectedEventId={selectedEvent?.id ?? null}
-                onRefresh={refreshEvents}
-                isRefreshing={isRefreshingEvents}
+                onArticleSelect={(art) => {
+                  setSelectedArticle(art);
+                  setSelectedEvent(null);
+                  setSelectedMapCountry(null);
+                  setSelectedCommodity(null);
+                  setRightPanelOpen(true);
+                  handleArticleRead(art.id);
+                }}
+                selectedArticleId={selectedArticle?.id ?? null}
+                onRefresh={async () => {
+                  await Promise.all([refreshEvents(), refreshFeed()]);
+                }}
+                isRefreshing={isRefreshingEvents || isFeedLoading}
               />
             )}
 
             {sidebarTab === "filters" && (
-              <>
+              <div className="px-3 flex flex-col gap-3">
                 <FilterPanel
                   selectedCountry={selectedCountry}
                   selectedType={selectedType}
@@ -616,15 +639,17 @@ export default function DashboardPage() {
                   activeInfraTypes={activeInfraTypes}
                   onToggleInfraType={handleToggleInfraType}
                 />
-              </>
+              </div>
             )}
 
             {sidebarTab === "stats" && (
-              <ConflictStatsPanel
-                stats={statsData}
-                countryStats={countryStats}
-                selectedCountry={selectedCountry}
-              />
+              <div className="px-3">
+                <ConflictStatsPanel
+                  stats={statsData}
+                  countryStats={countryStats}
+                  selectedCountry={selectedCountry}
+                />
+              </div>
             )}
           </SmoothScroll>
 
@@ -664,11 +689,10 @@ export default function DashboardPage() {
             {/* Map view button */}
             <button
               onClick={() => { setActiveTab("map"); setIndiaFeedOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
-                activeTab === "map" && !indiaFeedOpen
-                  ? "bg-cs-blue text-white shadow-md shadow-cs-blue/20"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-cs-border/40"
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${activeTab === "map" && !indiaFeedOpen
+                ? "bg-cs-blue text-white shadow-md shadow-cs-blue/20"
+                : "text-gray-400 hover:text-gray-200 hover:bg-cs-border/40"
+                }`}
             >
               <span>🗺️</span>
               <span>Geospatial Map</span>
@@ -681,11 +705,10 @@ export default function DashboardPage() {
                 setIndiaFeedOpen((v) => !v);
                 if (!indiaFeedOpen && activeTab === "map") setActiveTab("home");
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
-                indiaFeedOpen
-                  ? "bg-cs-blue text-white shadow-md shadow-cs-blue/20"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-cs-border/40"
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${indiaFeedOpen
+                ? "bg-cs-blue text-white shadow-md shadow-cs-blue/20"
+                : "text-gray-400 hover:text-gray-200 hover:bg-cs-border/40"
+                }`}
             >
               <span>🇮🇳</span>
               <span>Preference News</span>
@@ -698,7 +721,7 @@ export default function DashboardPage() {
             </button>
 
             {/* City selector — right aligned */}
-            <div className="ml-auto flex items-center gap-2 shrink-0">
+            <div className="ml-auto flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setCityModalOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-cs-dark border border-cs-border hover:border-cs-blue/50 text-gray-300 hover:text-white transition-all"
@@ -708,6 +731,18 @@ export default function DashboardPage() {
                   {selectedCity ? `${selectedCity}, ${selectedState.slice(0, 3)}` : "Select City"}
                 </span>
               </button>
+              {selectedCity && (
+                <button
+                  onClick={handleClearLocation}
+                  className="p-1.5 rounded-lg bg-cs-dark border border-cs-border text-gray-400 hover:text-red-400 hover:border-red-400/40 transition-all text-xs"
+                  title="Clear location filter"
+                  aria-label="Clear location filter"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
 
@@ -720,11 +755,10 @@ export default function DashboardPage() {
                   <button
                     key={tab.id}
                     onClick={() => handleFeedTabSelect(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
-                      activeTab === tab.id
-                        ? "bg-cs-blue/20 text-cs-blue border border-cs-blue/40"
-                        : "text-gray-500 hover:text-gray-200 hover:bg-cs-border/30"
-                    }`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${activeTab === tab.id
+                      ? "bg-cs-blue/20 text-cs-blue border border-cs-blue/40"
+                      : "text-gray-500 hover:text-gray-200 hover:bg-cs-border/30"
+                      }`}
                   >
                     <span>{tab.icon}</span>
                     <span>{tab.label}</span>
@@ -735,11 +769,10 @@ export default function DashboardPage() {
               <div className="flex items-center px-3 pb-2 gap-1.5 overflow-x-auto border-t border-cs-border/40 pt-2">
                 <button
                   onClick={() => handleCategoryTabSelect(null)}
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all shrink-0 border ${
-                    activeCategoryTab === null
-                      ? "bg-cs-blue text-white border-cs-blue shadow-sm"
-                      : "text-gray-400 hover:text-gray-200 border-cs-border/60 hover:border-cs-border bg-cs-dark/40"
-                  }`}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all shrink-0 border ${activeCategoryTab === null
+                    ? "bg-cs-blue text-white border-cs-blue shadow-sm"
+                    : "text-gray-400 hover:text-gray-200 border-cs-border/60 hover:border-cs-border bg-cs-dark/40"
+                    }`}
                 >
                   All Categories
                 </button>
@@ -749,11 +782,10 @@ export default function DashboardPage() {
                     <button
                       key={cat}
                       onClick={() => handleCategoryTabSelect(isSelected ? null : cat)}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all shrink-0 border ${
-                        isSelected
-                          ? "bg-cs-blue text-white border-cs-blue shadow-sm"
-                          : "text-gray-400 hover:text-gray-200 border-cs-border/60 hover:border-cs-border bg-cs-dark/40"
-                      }`}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all shrink-0 border ${isSelected
+                        ? "bg-cs-blue text-white border-cs-blue shadow-sm"
+                        : "text-gray-400 hover:text-gray-200 border-cs-border/60 hover:border-cs-border bg-cs-dark/40"
+                        }`}
                     >
                       {cat}
                     </button>
@@ -803,11 +835,10 @@ export default function DashboardPage() {
                       >
                         <span
                           onClick={() => toggleCategory(cat)}
-                          className={`flex items-center justify-center w-3.5 h-3.5 rounded-sm border transition-all shrink-0 ${
-                            selectedCategories.has(cat)
-                              ? "bg-cs-accent border-cs-accent"
-                              : "border-cs-border bg-cs-dark/60 group-hover:border-cs-accent/50"
-                          }`}
+                          className={`flex items-center justify-center w-3.5 h-3.5 rounded-sm border transition-all shrink-0 ${selectedCategories.has(cat)
+                            ? "bg-cs-accent border-cs-accent"
+                            : "border-cs-border bg-cs-dark/60 group-hover:border-cs-accent/50"
+                            }`}
                         >
                           {selectedCategories.has(cat) && (
                             <svg className="w-2 h-2 text-white" viewBox="0 0 10 10" fill="none">
@@ -817,11 +848,10 @@ export default function DashboardPage() {
                         </span>
                         <span
                           onClick={() => toggleCategory(cat)}
-                          className={`text-[10px] font-semibold transition-colors ${
-                            selectedCategories.has(cat)
-                              ? "text-gray-200"
-                              : "text-gray-600 group-hover:text-gray-400"
-                          }`}
+                          className={`text-[10px] font-semibold transition-colors ${selectedCategories.has(cat)
+                            ? "text-gray-200"
+                            : "text-gray-600 group-hover:text-gray-400"
+                            }`}
                         >
                           {cat}
                         </span>
@@ -886,12 +916,11 @@ export default function DashboardPage() {
                     </div>
                     <div className="space-y-1">
                       {[
-                        { color: "#ef4444", label: "Airstrike" },
-                        { color: "#f97316", label: "Missile Strike" },
-                        { color: "#eab308", label: "Explosion" },
-                        { color: "#a855f7", label: "Drone Strike" },
-                        { color: "#f59e0b", label: "Infra Attack" },
-                        { color: "#dc2626", label: "Armed Conflict" },
+                        { color: "#ef4444", label: "War causalities/conflict" },
+                        { color: "#3b82f6", label: "Infrastructure Attack" },
+                        { color: "#22c55e", label: "Environment" },
+                        { color: "#a855f7", label: "Import / Export" },
+                        { color: "#eab308", label: "Stock Markets" },
                       ].map(({ color, label }) => (
                         <div key={label} className="flex items-center gap-2">
                           <span
@@ -923,7 +952,7 @@ export default function DashboardPage() {
                 <div className="p-6 space-y-4">
                   <div className="h-8 w-64 bg-cs-panel/60 rounded-lg animate-pulse" />
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {[1,2,3,4,5,6].map((i) => (
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
                       <div key={i} className="h-52 bg-cs-panel/60 border border-cs-border/40 rounded-2xl animate-pulse" />
                     ))}
                   </div>
@@ -1023,13 +1052,12 @@ export default function DashboardPage() {
                             setRightPanelOpen(true);
                             handleArticleRead(featured.id);
                           }}
-                          className={`relative cursor-pointer rounded-2xl border p-5 transition-all duration-300 group ${
-                            selectedArticle?.id === featured.id
-                              ? "bg-cs-panel border-cs-accent ring-1 ring-cs-accent/30"
-                              : isRead
-                                ? "bg-cs-panel/40 border-cs-border/50 hover:border-cs-accent/30"
-                                : "bg-cs-panel border-cs-border hover:border-cs-accent/40 shadow-lg"
-                          }`}
+                          className={`relative cursor-pointer rounded-2xl border p-5 transition-all duration-300 group ${selectedArticle?.id === featured.id
+                            ? "bg-cs-panel border-cs-accent ring-1 ring-cs-accent/30"
+                            : isRead
+                              ? "bg-cs-panel/40 border-cs-border/50 hover:border-cs-accent/30"
+                              : "bg-cs-panel border-cs-border hover:border-cs-accent/40 shadow-lg"
+                            }`}
                         >
                           {isRead && (
                             <div className="absolute top-3 right-3 text-[8px] font-bold uppercase tracking-wider text-gray-600 bg-cs-dark/60 px-1.5 py-0.5 rounded">Read</div>
@@ -1058,9 +1086,8 @@ export default function DashboardPage() {
                                   {scope.icon} {scope.label}
                                 </span>
                               </div>
-                              <h2 className={`text-sm font-bold leading-snug transition-colors ${
-                                isRead ? "text-gray-500" : "text-gray-100 group-hover:text-cs-accent"
-                              }`}>
+                              <h2 className={`text-sm font-bold leading-snug transition-colors ${isRead ? "text-gray-500" : "text-gray-100 group-hover:text-cs-accent"
+                                }`}>
                                 {featured.title}
                               </h2>
                               <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">
@@ -1095,13 +1122,12 @@ export default function DashboardPage() {
                                 setRightPanelOpen(true);
                                 handleArticleRead(art.id);
                               }}
-                              className={`relative cursor-pointer rounded-2xl border flex flex-col justify-between p-4 transition-all duration-200 group ${
-                                selectedArticle?.id === art.id
-                                  ? "bg-cs-panel border-cs-accent ring-1 ring-cs-accent/30"
-                                  : isRead
-                                    ? "bg-cs-panel/30 border-cs-border/40 hover:border-cs-accent/30 opacity-60"
-                                    : "bg-cs-panel border-cs-border hover:border-cs-accent/40 shadow-md"
-                              }`}
+                              className={`relative cursor-pointer rounded-2xl border flex flex-col justify-between p-4 transition-all duration-200 group ${selectedArticle?.id === art.id
+                                ? "bg-cs-panel border-cs-accent ring-1 ring-cs-accent/30"
+                                : isRead
+                                  ? "bg-cs-panel/30 border-cs-border/40 hover:border-cs-accent/30 opacity-60"
+                                  : "bg-cs-panel border-cs-border hover:border-cs-accent/40 shadow-md"
+                                }`}
                             >
                               <div className="space-y-2">
                                 {/* Category + scope + time row */}
@@ -1129,9 +1155,8 @@ export default function DashboardPage() {
                                 </div>
 
                                 {/* Title */}
-                                <h3 className={`text-xs font-bold leading-snug line-clamp-3 transition-colors ${
-                                  isRead ? "text-gray-600" : "text-gray-200 group-hover:text-cs-accent"
-                                }`}>
+                                <h3 className={`text-xs font-bold leading-snug line-clamp-3 transition-colors ${isRead ? "text-gray-600" : "text-gray-200 group-hover:text-cs-accent"
+                                  }`}>
                                   {art.title}
                                 </h3>
 
@@ -1163,9 +1188,8 @@ export default function DashboardPage() {
 
         {/* ── Right Panel ────────────────────────────────── */}
         <div
-          className={`shrink-0 transition-all duration-300 bg-cs-panel border-l border-cs-border z-40 overflow-hidden ${
-            rightPanelVisible ? "w-80" : "w-0"
-          }`}
+          className={`shrink-0 transition-all duration-300 bg-cs-panel border-l border-cs-border z-40 overflow-hidden ${rightPanelVisible ? "w-80" : "w-0"
+            }`}
         >
           <SmoothScroll className="w-80 h-full overflow-y-auto">
             {selectedMapCountry && (

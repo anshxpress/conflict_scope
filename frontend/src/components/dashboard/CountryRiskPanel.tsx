@@ -32,7 +32,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   "War / Conflict": "bg-red-500",
   "Government / Laws / Policies": "bg-blue-500",
   "Economy / Markets": "bg-emerald-500",
-  "Commodities": "bg-amber-500",
+  "Essential Market": "bg-amber-500",
   "Technology": "bg-purple-500",
   "Health": "bg-teal-500",
   "Infrastructure": "bg-sky-500",
@@ -210,7 +210,7 @@ const CountryRiskPanel: FC<CountryRiskPanelProps> = ({ country, onClose }) => {
           {data.commodities && data.commodities.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-bold flex items-center gap-1.5">
-                <span>⚡</span> Commodity Market Effects
+                <span>⚡</span> Essential Market Effects
               </h3>
               <div className="flex flex-wrap gap-1.5">
                 {data.commodities.map((c: string) => (

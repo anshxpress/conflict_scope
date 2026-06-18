@@ -188,6 +188,43 @@ const WAR_KEYWORDS: Record<EventType, string[]> = {
     "sanctions against",
     "arms embargo",
   ],
+  environment: [
+    "monsoon",
+    "heatwave",
+    "cyclone",
+    "flood",
+    "floods",
+    "drought",
+    "climate change",
+    "natural disaster",
+    "landslide",
+    "earthquake",
+    "weather warning",
+  ],
+  import_export: [
+    "import",
+    "export",
+    "tariffs",
+    "trade restrictions",
+    "customs duty",
+    "shipping cargo",
+    "trade ban",
+    "export ban",
+    "import ban",
+  ],
+  stock: [
+    "stock market",
+    "shares",
+    "trading",
+    "sensex",
+    "nifty",
+    "index crash",
+    "mutual fund",
+    "commodity prices",
+    "gold rate",
+    "stock index",
+    "crude price",
+  ],
 };
 
 const ALL_WAR_KEYWORDS = Object.values(WAR_KEYWORDS).flat();
@@ -781,6 +818,12 @@ function classifyEventCategory(
   eventType: EventType,
   politicalEconomicMatchCount: number
 ): "military" | "political" | "economic" | "policy" {
+  if (eventType === "stock" || eventType === "import_export") {
+    return "economic";
+  }
+  if (eventType === "environment") {
+    return "policy";
+  }
   if (eventType === "infrastructure_attack" || eventType === "airstrike" || eventType === "missile_strike") {
     return "military";
   }

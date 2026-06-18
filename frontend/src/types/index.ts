@@ -88,7 +88,10 @@ export type EventType =
   | "explosion"
   | "drone_strike"
   | "infrastructure_attack"
-  | "armed_conflict";
+  | "armed_conflict"
+  | "environment"
+  | "import_export"
+  | "stock";
 
 export type ConfidenceLevel = "low" | "medium" | "high";
 
@@ -104,17 +107,23 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   missile_strike: "Missile Strike",
   explosion: "Explosion",
   drone_strike: "Drone Strike",
-  infrastructure_attack: "Infrastructure Attack",
+  infrastructure_attack: "Infra Attack",
   armed_conflict: "Armed Conflict",
+  environment: "Environment",
+  import_export: "Import / Export",
+  stock: "Stock Markets",
 };
 
 export const EVENT_TYPE_COLORS: Record<EventType, string> = {
   airstrike: "#ef4444",
-  missile_strike: "#f97316",
-  explosion: "#eab308",
-  drone_strike: "#a855f7",
-  infrastructure_attack: "#f59e0b",
-  armed_conflict: "#dc2626",
+  missile_strike: "#ef4444",
+  explosion: "#ef4444",
+  drone_strike: "#ef4444",
+  infrastructure_attack: "#3b82f6",
+  armed_conflict: "#ef4444",
+  environment: "#22c55e",
+  import_export: "#a855f7",
+  stock: "#eab308",
 };
 
 export const CONFIDENCE_LABELS: Record<ConfidenceLevel, string> = {
@@ -192,7 +201,7 @@ export const RISK_LABELS: Record<RiskLevel, string> = {
 
 // ── Commodity types ────────────────────────────────────
 
-export type CommodityName = "gold" | "silver" | "oil";
+export type CommodityName = "gold" | "silver" | "oil" | "petrol" | "diesel" | "gas" | "food";
 export type GeoEventCategory = "military" | "political" | "economic" | "policy";
 export type CommodityAlertLevel = "info" | "warning" | "critical";
 
@@ -250,6 +259,14 @@ export interface CommodityInsightItem {
 export interface CommodityInsightsResponse {
   commodity: CommodityName;
   insights: CommodityInsightItem[];
+  news?: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    url: string;
+    source: string;
+    publishedAt: string | null;
+  }>;
 }
 
 export interface CommodityAlert {
@@ -310,12 +327,20 @@ export const COMMODITY_ICONS: Record<CommodityName, string> = {
   gold: "🟡",
   silver: "⚪",
   oil: "🛢",
+  petrol: "⛽",
+  diesel: "🚛",
+  gas: "🔥",
+  food: "🌾",
 };
 
 export const COMMODITY_LABELS: Record<CommodityName, string> = {
   gold: "Gold",
   silver: "Silver",
   oil: "Crude Oil",
+  petrol: "Petrol",
+  diesel: "Diesel",
+  gas: "LPG Gas",
+  food: "Food & Grains",
 };
 
 // ── Impact type display ────────────────────────────────

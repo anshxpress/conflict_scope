@@ -23,6 +23,9 @@ const EVENT_TYPES: EventType[] = [
   "drone_strike",
   "infrastructure_attack",
   "armed_conflict",
+  "environment",
+  "import_export",
+  "stock",
 ];
 
 const CONFIDENCE_LEVELS: ConfidenceLevel[] = ["low", "medium", "high"];

@@ -166,13 +166,12 @@ const NotificationBell: FC = () => {
                   >
                     {/* Badge */}
                     <div
-                      className={`shrink-0 w-8 h-8 rounded flex flex-col items-center justify-center text-[9px] font-bold ${
-                        a.commodity === "gold"
-                          ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
-                          : a.commodity === "silver"
-                            ? "bg-gray-400/10 text-gray-300 border border-gray-400/20"
-                            : "bg-orange-500/10 text-orange-400 border border-orange-500/20"
-                      }`}
+                      className={`shrink-0 w-8 h-8 rounded flex flex-col items-center justify-center text-[9px] font-bold ${a.commodity === "gold"
+                        ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+                        : a.commodity === "silver"
+                          ? "bg-gray-400/10 text-gray-300 border border-gray-400/20"
+                          : "bg-orange-500/10 text-orange-400 border border-orange-500/20"
+                        }`}
                     >
                       <span className="text-xs leading-none">{COMMODITY_ICONS[a.commodity]}</span>
                       <span className="text-[6px] uppercase tracking-wider font-semibold mt-0.5">
@@ -188,21 +187,19 @@ const NotificationBell: FC = () => {
                         <div className="flex items-center gap-1 shrink-0">
                           {a.priceChangePercent !== null && (
                             <span
-                              className={`text-[9px] font-bold font-mono ${
-                                isUp ? "text-green-400" : "text-red-400"
-                              }`}
+                              className={`text-[9px] font-bold font-mono ${isUp ? "text-green-400" : "text-red-400"
+                                }`}
                             >
                               {isUp ? "▲" : "▼"}{Math.abs(a.priceChangePercent).toFixed(1)}%
                             </span>
                           )}
                           <span
-                            className={`text-[7px] uppercase font-bold tracking-wider px-1 py-0.5 rounded border leading-none ${
-                              a.level === "critical"
-                                ? "text-red-400 bg-red-950/40 border-red-800/50"
-                                : a.level === "warning"
-                                  ? "text-yellow-400 bg-yellow-950/40 border-yellow-800/50"
-                                  : "text-blue-400 bg-blue-950/40 border-blue-800/50"
-                            }`}
+                            className={`text-[7px] uppercase font-bold tracking-wider px-1 py-0.5 rounded border leading-none ${a.level === "critical"
+                              ? "text-red-400 bg-red-950/40 border-red-800/50"
+                              : a.level === "warning"
+                                ? "text-yellow-400 bg-yellow-950/40 border-yellow-800/50"
+                                : "text-blue-400 bg-blue-950/40 border-blue-800/50"
+                              }`}
                           >
                             {a.level}
                           </span>

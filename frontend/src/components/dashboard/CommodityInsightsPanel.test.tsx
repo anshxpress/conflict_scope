@@ -55,6 +55,16 @@ vi.mock("@/lib/hooks", () => ({
           isStrictlyVerified: true,
         },
       ],
+      news: [
+        {
+          id: "mock-news-test-1",
+          title: "India commodity prices soar after policy shift",
+          description: "A detailed report on rising essential commodities in Indian local markets.",
+          url: "https://example.com/india-news",
+          source: "Hindustan Times",
+          publishedAt: "2026-03-14T08:00:00.000Z"
+        }
+      ]
     },
     isLoading: false,
   }),
@@ -122,5 +132,15 @@ describe("CommodityInsightsPanel", () => {
     expect(screen.getByText(/expected in\s*1\s*h/i)).toBeInTheDocument();
     expect(screen.getByText(/55\.3/)).toBeInTheDocument();
     expect(screen.getByText(/Verified events:\s*1/i)).toBeInTheDocument();
+  });
+
+  it("renders the Indian News Feed with articles", () => {
+    render(
+      <CommodityInsightsPanel commodity="gold" onClose={() => undefined} />,
+    );
+
+    expect(screen.getByText(/Indian News Feed/i)).toBeInTheDocument();
+    expect(screen.getByText("India commodity prices soar after policy shift")).toBeInTheDocument();
+    expect(screen.getByText("Hindustan Times")).toBeInTheDocument();
   });
 });

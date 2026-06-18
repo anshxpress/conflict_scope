@@ -122,6 +122,22 @@ export default function CitySelectorModal({
           </div>
         </div>
 
+        {/* Skip Option */}
+        <div className="px-6 py-3.5 bg-cs-dark/20 border-b border-cs-border flex justify-between items-center shrink-0">
+          <span className="text-xs text-gray-400 leading-snug">
+            Want to see national & global news without location filtering?
+          </span>
+          <button
+            onClick={() => {
+              onSelect("", "");
+              onClose();
+            }}
+            className="px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-[11px] font-extrabold uppercase tracking-wider text-gray-200 border border-cs-border hover:border-gray-500 transition-all shrink-0"
+          >
+            Skip Setup
+          </button>
+        </div>
+
         {/* List */}
         <div className="flex-1 overflow-y-auto p-6 max-h-[50vh]">
           {filteredCities.length > 0 ? (

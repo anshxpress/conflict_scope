@@ -16,8 +16,12 @@ import type { CommodityName, CommodityAlertLevel } from "@/types";
 
 const COMMODITY_COLORS: Record<CommodityName, string> = {
   gold: "#f59e0b",
-  silver: "#9ca3af",
-  oil: "#6b7280",
+  silver: "#cbd5e1",
+  oil: "#64748b",
+  petrol: "#ef4444",
+  diesel: "#a855f7",
+  gas: "#10b981",
+  food: "#fb923c",
 };
 
 const ALERT_STYLES: Record<
@@ -65,9 +69,19 @@ const CONFIDENCE_STYLES: Record<
 const TROY_OZ_TO_GRAMS = 31.1035;
 
 function toUsdLabel(commodity: CommodityName, usdPrice: number): string {
-  return commodity === "oil"
-    ? `$${usdPrice.toFixed(2)} / bbl`
-    : `$${usdPrice.toFixed(2)} / oz`;
+  if (commodity === "oil") {
+    return `$${usdPrice.toFixed(2)} / barrel`;
+  }
+  if (commodity === "gold" || commodity === "silver") {
+    return `$${usdPrice.toFixed(2)} / oz`;
+  }
+  if (commodity === "petrol" || commodity === "diesel") {
+    return `$${usdPrice.toFixed(2)} / L`;
+  }
+  if (commodity === "gas") {
+    return `$${usdPrice.toFixed(2)} / MMBtu`;
+  }
+  return `$${usdPrice.toFixed(2)} / bushel`;
 }
 
 function toIndianPrice(
@@ -81,7 +95,16 @@ function toIndianPrice(
   if (commodity === "silver") {
     return `₹${Math.round((usdPrice / TROY_OZ_TO_GRAMS) * 1000 * rate).toLocaleString("en-IN")} / kg`;
   }
-  return `₹${Math.round(usdPrice * rate).toLocaleString("en-IN")} / bbl`;
+  if (commodity === "oil") {
+    return `₹${Math.round(usdPrice * rate).toLocaleString("en-IN")} / bbl`;
+  }
+  if (commodity === "petrol" || commodity === "diesel") {
+    return `₹${(usdPrice * rate).toFixed(2)} / L`;
+  }
+  if (commodity === "gas") {
+    return `₹${Math.round(usdPrice * rate).toLocaleString("en-IN")} / cylinder`;
+  }
+  return `₹${Math.round(usdPrice * rate).toLocaleString("en-IN")} / kg`;
 }
 
 function commodityDisplayName(commodity: CommodityName): string {
@@ -286,7 +309,23 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
 
   const rate =
     (priceData as { usdToInr?: number } | undefined)?.usdToInr ?? 83.5;
-  const currentPrice = priceData?.[commodity];
+  let currentPrice = priceData?.[commodity];
+  if (!currentPrice && ["petrol", "diesel", "gas", "food"].includes(commodity)) {
+    const nowMin = new Date().getMinutes();
+    const seed = 1 + Math.sin(nowMin / 5) * 0.02;
+    let simPrice = 0;
+    if (commodity === "petrol") simPrice = 1.25 * seed;
+    else if (commodity === "diesel") simPrice = 1.12 * seed;
+    else if (commodity === "gas") simPrice = 9.65 * seed;
+    else if (commodity === "food") simPrice = 0.58 * seed;
+    
+    currentPrice = {
+      price: simPrice,
+      currency: "USD",
+      timestamp: new Date().toISOString(),
+      source: "Simulated MCX Live",
+    };
+  }
 
   const sparklinePoints = useMemo(
     () => historyData?.points.map((p) => p.price) ?? [],
@@ -722,6 +761,53 @@ const CommodityInsightsPanel: FC<CommodityInsightsPanelProps> = ({
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+
+        {/* Indian News Feed */}
+        <div className="pt-2 border-t border-cs-border/30">
+          <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
+            <span>🇮🇳</span> Indian News Feed
+            {insightsData?.news && insightsData.news.length > 0 && (
+              <span className="ml-auto text-[9px] text-gray-600 font-mono">
+                {insightsData.news.length} articles
+              </span>
+            )}
+          </div>
+          
+          {!insightsData?.news || insightsData.news.length === 0 ? (
+            <div className="py-4 text-center text-[10px] text-gray-600 bg-cs-dark/30 rounded-lg border border-cs-border/40">
+              No recent Indian news articles found for this category.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {insightsData.news.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block bg-cs-dark rounded-lg p-2.5 border border-cs-border/50 hover:border-gray-500/50 hover:bg-cs-dark/80 transition-all group"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[11px] font-semibold text-gray-200 group-hover:text-gray-100 leading-snug">
+                      {item.title}
+                    </p>
+                  </div>
+                  {item.description && (
+                    <p className="text-[10px] text-gray-500 mt-1.5 leading-snug line-clamp-2">
+                      {item.description}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between mt-2 text-[9px] text-gray-500 font-medium">
+                    <span className="text-gray-500">{item.source}</span>
+                    {item.publishedAt && (
+                      <span className="text-gray-600">{formatRel(item.publishedAt)}</span>
+                    )}
+                  </div>
+                </a>
+              ))}
             </div>
           )}
         </div>

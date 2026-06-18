@@ -8,7 +8,7 @@ export function mapToConnectionCategory(category: string): string {
   if (!category) return "Policy";
   const cat = category.toLowerCase();
   if (cat.includes("conflict") || cat.includes("war")) return "Conflict";
-  if (cat.includes("commodity") || cat.includes("energy")) return "Commodity";
+  if (cat.includes("commodity") || cat.includes("energy")) return "Essential Market";
   if (cat.includes("trade")) return "Trade";
   if (cat.includes("policy") || cat.includes("government") || cat.includes("economy") || cat.includes("market")) return "Policy";
   if (cat.includes("tech")) return "Technology";

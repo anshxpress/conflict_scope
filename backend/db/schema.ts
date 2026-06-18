@@ -21,6 +21,9 @@ export const eventTypeEnum = pgEnum("event_type", [
   "drone_strike",
   "infrastructure_attack",
   "armed_conflict",
+  "environment",
+  "import_export",
+  "stock",
 ]);
 
 export const confidenceEnum = pgEnum("confidence_level", [

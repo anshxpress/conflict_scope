@@ -24,7 +24,7 @@ interface FeedDef {
   fallback?: string;
 }
 
-const RSS_FEEDS: FeedDef[] = [
+export const RSS_FEEDS: FeedDef[] = [
   // ── PRIMARY WIRE SERVICES ───────────────────────────────────────────────────
 
   // Reuters — world's largest international wire service
@@ -135,7 +135,7 @@ const RSS_FEEDS: FeedDef[] = [
   },
   {
     name: "Times of India",
-    url: "https://timesofindia.indiatimes.com/rssfeeds/2947300.cms",
+    url: "https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms",
   },
   {
     name: "Indian Express",
@@ -162,7 +162,7 @@ const RSS_FEEDS: FeedDef[] = [
   // Lloyd's List — authoritative shipping intelligence
   {
     name: "Lloyd's List",
-    url: "https://lloydslist.maritimeintelligence.informa.com/rss-feeds",
+    url: "https://news.google.com/rss/search?q=site:lloydslist.com+OR+site:lloydslist.maritimeintelligence.informa.com&hl=en-US&gl=US&ceid=US:en",
     fallback: "https://gcaptain.com/feed/",
   },
   // Splash 247 — vessel incidents, piracy, armed shipping attack reports
@@ -189,8 +189,8 @@ const RSS_FEEDS: FeedDef[] = [
     url: "https://feeds.feedburner.com/ndtvprofit-latest",
   },
   {
-    name: "NDTV Health",
-    url: "https://feeds.feedburner.com/ndtv/health",
+    name: "ET Health",
+    url: "https://health.economictimes.indiatimes.com/rss/latestnews",
   },
   {
     name: "Economic Times India",
@@ -206,11 +206,11 @@ const RSS_FEEDS: FeedDef[] = [
   },
   {
     name: "Business Standard India",
-    url: "https://www.business-standard.com/rss/home_page_top_stories.rss",
+    url: "https://news.google.com/rss/search?q=site:business-standard.com&hl=en-IN&gl=IN&ceid=IN:en",
   },
   {
     name: "Moneycontrol Personal Finance",
-    url: "https://www.moneycontrol.com/rss/personal-finance.xml",
+    url: "https://news.google.com/rss/search?q=site:moneycontrol.com/news/business/personal-finance&hl=en-IN&gl=IN&ceid=IN:en",
   },
 ];
 
@@ -260,7 +260,7 @@ async function fetchSingleFeedWithFallback(
   }
 }
 
-async function fetchSingleFeed(
+export async function fetchSingleFeed(
   sourceName: string,
   url: string,
   cutoff: Date
