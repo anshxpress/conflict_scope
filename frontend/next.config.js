@@ -8,7 +8,7 @@ const nextConfig = {
   // Standalone output is for Docker self-hosting only.
   // Vercel manages its own output format — skip this when deploying to Vercel.
   ...(process.env.VERCEL ? {} : { output: "standalone" }),
-  outputFileTracingRoot: path.join(__dirname, "../"),
+
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
   },
