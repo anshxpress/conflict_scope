@@ -18,6 +18,8 @@ interface LiveEventFeedProps {
   selectedArticleId: string | null;
   onRefresh?: () => unknown;
   isRefreshing?: boolean;
+  isWarMode?: boolean;
+  focusCountry?: string | null;
 }
 
 const LiveEventFeed: FC<LiveEventFeedProps> = ({
@@ -32,6 +34,8 @@ const LiveEventFeed: FC<LiveEventFeedProps> = ({
   selectedArticleId,
   onRefresh,
   isRefreshing = false,
+  isWarMode = false,
+  focusCountry = null,
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
   const [liveEvents, setLiveEvents] = useState<ConflictEvent[]>([]);
@@ -213,6 +217,11 @@ const LiveEventFeed: FC<LiveEventFeedProps> = ({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cs-accent" />
             </span>
             Live
+            {/* {isWarMode && (
+              <span className="ml-2 px-1.5 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded text-[10px] uppercase tracking-wider font-bold">
+                War & Conflict {focusCountry ? `· ${focusCountry}` : ""}
+              </span>
+            )} */}
           </h3>
 
           <div className="flex items-center gap-2">
@@ -260,7 +269,7 @@ const LiveEventFeed: FC<LiveEventFeedProps> = ({
       <div
         ref={listRef}
         className="flex-1 overflow-y-auto divide-y divide-cs-border/60"
-        style={{ maxHeight: "calc(100vh - 380px)", minHeight: "220px" }}
+        style={{ maxHeight: "calc(100vh - 180px)", minHeight: "220px" }}
       >
         {filteredFeed.length === 0 ? (
           <div className="text-xs text-gray-600 text-center py-12 px-4 space-y-1">

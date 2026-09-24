@@ -30,9 +30,11 @@ export const newsRoutes = new Elysia({ prefix: "/news" })
       const minScore = Math.max(0, Math.min(100, parseInt(query.minScore ?? "60", 10)));
       const limit = Math.min(parseInt(query.limit ?? "50", 10), 100);
       const offset = parseInt(query.offset ?? "0", 10);
+      const warOnly = query.warOnly === "true";
+      const countryFocus = query.countryFocus || "";
 
       // ── L1: Redis cache check ────────────────────────────────────────────
-      const cacheKey = `news:feed:${city}:${state}:${country}:${categoriesParam}:${minScore}:${limit}:${offset}:${preferredCategoriesParam}`;
+      const cacheKey = `news:feed:${city}:${state}:${country}:${categoriesParam}:${minScore}:${limit}:${offset}:${preferredCategoriesParam}:${warOnly}:${countryFocus}`;
       const cached = await redis.get<any>(cacheKey);
       if (cached) {
         return cached;
@@ -81,6 +83,19 @@ export const newsRoutes = new Elysia({ prefix: "/news" })
         conditions.push(
           sql`${schema.articles.categories} IS NOT NULL
               AND ${schema.articles.categories} && ${pgArray}::text[]`
+        );
+      }
+
+      if (warOnly) {
+        conditions.push(
+          sql`(${schema.articles.categories} IS NOT NULL AND ${schema.articles.categories} && ARRAY['War','Conflict','Military','Defence','Security']::text[]
+               OR array_length(${schema.articles.countries}, 1) >= 2)`
+        );
+      }
+
+      if (countryFocus) {
+        conditions.push(
+          sql`(${schema.articles.country} = ${countryFocus} OR ${schema.articles.countries} @> ARRAY[${countryFocus}]::text[])`
         );
       }
 
@@ -231,6 +246,8 @@ export const newsRoutes = new Elysia({ prefix: "/news" })
         minScore:   t.Optional(t.String()),
         limit:      t.Optional(t.String()),
         offset:     t.Optional(t.String()),
+        warOnly:    t.Optional(t.String()),
+        countryFocus: t.Optional(t.String()),
       }),
     }
   )

@@ -234,7 +234,12 @@ export default function DashboardPage() {
       limit: "50",
       minScore: "60",  // Importance threshold — only show articles scoring 60+
     };
-    if (activeTab === "city" && selectedCity) {
+    if (activeTab === "map" && !indiaFeedOpen) {
+      params.warOnly = "true";
+      if (selectedMapCountry) {
+        params.countryFocus = selectedMapCountry;
+      }
+    } else if (activeTab === "city" && selectedCity) {
       params.city = selectedCity;
       if (selectedState) params.state = selectedState;
     } else if (activeTab === "state" && selectedState) {
@@ -262,7 +267,7 @@ export default function DashboardPage() {
       }
     }
     return params;
-  }, [activeTab, activeCategoryTab, selectedCity, selectedState, selectedCategories]);
+  }, [activeTab, activeCategoryTab, selectedCity, selectedState, selectedCategories, indiaFeedOpen, selectedMapCountry]);
 
   const {
     data: feedData,
@@ -612,6 +617,8 @@ export default function DashboardPage() {
                   await Promise.all([refreshEvents(), refreshFeed()]);
                 }}
                 isRefreshing={isRefreshingEvents || isFeedLoading}
+                isWarMode={activeTab === "map" && !indiaFeedOpen}
+                focusCountry={selectedMapCountry}
               />
             )}
 
@@ -653,13 +660,6 @@ export default function DashboardPage() {
             )}
           </SmoothScroll>
 
-          {/* Commodity panel — pinned to bottom of sidebar */}
-          <div className="w-72 shrink-0">
-            <CommodityPanel
-              onCommoditySelect={handleCommoditySelect}
-              selectedCommodity={selectedCommodity}
-            />
-          </div>
         </div>
 
         {/* Left panel toggle button */}
@@ -685,6 +685,7 @@ export default function DashboardPage() {
         {/* ── Dashboard Content Area ────────────────────── */}
         <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
           {/* Subheader: Nav bar with India Feed button */}
+          {false && (
           <div className="flex items-center bg-cs-panel border-b border-cs-border shrink-0 p-2 gap-2 overflow-x-auto z-40">
             {/* Map view button */}
             <button
@@ -698,7 +699,8 @@ export default function DashboardPage() {
               <span>Geospatial Map</span>
             </button>
 
-            {/* Preference News button — collapses all personalized feed views */}
+            {/* Preference News button disabled */}
+            {false && (
             <button
               id="preference-news-toggle"
               onClick={() => {
@@ -719,6 +721,7 @@ export default function DashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
+            )}
 
             {/* City selector — right aligned */}
             <div className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -745,9 +748,10 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+          )}
 
-          {/* India Feed: expandable tab row — shown only when indiaFeedOpen */}
-          {indiaFeedOpen && (
+          {/* India Feed: expandable tab row disabled */}
+          {false && (
             <div className="shrink-0 bg-cs-dark/80 border-b border-cs-border z-40">
               {/* Feed sub-tabs */}
               <div className="flex items-center p-2 gap-1.5 overflow-x-auto">
@@ -873,6 +877,11 @@ export default function DashboardPage() {
           {activeTab === "map" && !indiaFeedOpen ? (
             /* 🗺️ GEOSPATIAL MAP VIEW TABS */
             <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
+              <CommodityPanel
+                variant="ticker"
+                onCommoditySelect={handleCommoditySelect}
+                selectedCommodity={selectedCommodity}
+              />
               <div className="flex-1 h-0 relative">
                 <MapView
                   events={showEvents ? events : []}
@@ -944,7 +953,7 @@ export default function DashboardPage() {
                 />
               </div>
             </div>
-          ) : indiaFeedOpen ? (
+          ) : false /* indiaFeedOpen disabled */ ? (
             /* 📰 INDIA PERSONALIZED FEED */
             <div className="flex-1 overflow-y-auto bg-cs-dark">
               {isFeedLoading || isRecsLoading ? (
