@@ -6,6 +6,79 @@ import { cosineSimilarity } from "../../services/nlp/embeddings";
 import { redis } from "../../lib/redis";
 
 export const newsRoutes = new Elysia({ prefix: "/news" })
+  .get("/ping", () => "pong")
+
+  /**
+   * GET /news/search?q=keyword — keyword search against articles in the database
+   * No external API calls. Pure DB full-text search.
+   * Also falls back to ILIKE if tsquery yields 0 results.
+   */
+  .get(
+    "/search",
+    async ({ query }) => {
+      const rawQ = (query.q || "").trim();
+      const limit = Math.min(parseInt(query.limit ?? "20", 10), 50);
+
+      if (!rawQ) {
+        return { data: [], query: "" };
+      }
+
+      // 1. Try PostgreSQL full-text search (websearch_to_tsquery handles multi-word/phrases)
+      let articles: any[] = await db
+        .select({
+          id: schema.articles.id,
+          title: schema.articles.title,
+          description: schema.articles.description,
+          content: schema.articles.content,
+          url: schema.articles.url,
+          source: schema.articles.source,
+          publishedAt: schema.articles.publishedAt,
+          country: schema.articles.country,
+          categories: schema.articles.categories,
+          importanceScore: schema.articles.importanceScore,
+        })
+        .from(schema.articles)
+        .where(
+          sql`to_tsvector('english', COALESCE(${schema.articles.title},'') || ' ' || COALESCE(${schema.articles.content},'') || ' ' || COALESCE(${schema.articles.description},''))
+              @@ websearch_to_tsquery('english', ${rawQ})`
+        )
+        .orderBy(desc(schema.articles.publishedAt))
+        .limit(limit);
+
+      // 2. Fallback: ILIKE on title / description if full-text gave nothing
+      if (articles.length === 0) {
+        const pattern = `%${rawQ}%`;
+        articles = await db
+          .select({
+            id: schema.articles.id,
+            title: schema.articles.title,
+            description: schema.articles.description,
+            content: schema.articles.content,
+            url: schema.articles.url,
+            source: schema.articles.source,
+            publishedAt: schema.articles.publishedAt,
+            country: schema.articles.country,
+            categories: schema.articles.categories,
+            importanceScore: schema.articles.importanceScore,
+          })
+          .from(schema.articles)
+          .where(
+            sql`(${schema.articles.title} ILIKE ${pattern} OR ${schema.articles.description} ILIKE ${pattern})`
+          )
+          .orderBy(desc(schema.articles.publishedAt))
+          .limit(limit);
+      }
+
+      return { data: articles, query: rawQ, total: articles.length };
+    },
+    {
+      query: t.Object({
+        q:     t.Optional(t.String()),
+        limit: t.Optional(t.String()),
+      }),
+    }
+  )
+
   /**
    * GET /news/feed — serves the prioritized, importance-filtered news feed
    *

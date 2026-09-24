@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ── Enums ──────────────────────────────────────────────
 
@@ -132,6 +133,10 @@ export const articles = pgTable(
     categoryIdx: index("articles_category_idx").on(table.category),
     importanceIdx: index("articles_importance_idx").on(table.importanceScore),
     showInFeedIdx: index("articles_show_in_feed_idx").on(table.showInFeed),
+    fullTextIdx: index("articles_fulltext_idx").using(
+      "gin",
+      sql`to_tsvector('english', COALESCE(${table.title},'') || ' ' || COALESCE(${table.content},'') || ' ' || COALESCE(${table.description},''))`
+    ),
   })
 );
 

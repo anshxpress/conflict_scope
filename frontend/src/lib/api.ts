@@ -17,11 +17,7 @@ import type {
   CommodityOverview,
 } from "@/types";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== "undefined" && window.location.hostname !== "localhost"
-    ? "https://conflictscope-api.onrender.com"
-    : "http://localhost:3001");
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const API_BASE = `${API_URL}/api/v1`;
 
 async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
@@ -271,6 +267,15 @@ export const api = {
   },
 
   /**
+   * Keyword search — fetches articles from the database matching the query.
+   * No external API call; pure DB full-text + ILIKE fallback.
+   */
+  searchNews(q: string, limit = 20): Promise<{ data: any[]; query: string; total: number }> {
+    const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+    return fetchJSON(`/news/search?${qs}`);
+  },
+
+  /**
    * Fetch recommendations based on read history.
    */
   getRecommendations(readIds: string): Promise<{ data: any[] }> {
@@ -309,6 +314,22 @@ export const api = {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ message, history }),
+    });
+  },
+
+  /**
+   * Global chat to answer user queries using the latest news context.
+   */
+  globalChat(
+    question: string,
+    history: Array<{ role: "user" | "model"; content: string }>
+  ): Promise<{ response: string }> {
+    return fetchJSON(`/news/global-chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ question, history }),
     });
   },
 };

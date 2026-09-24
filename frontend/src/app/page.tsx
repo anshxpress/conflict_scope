@@ -23,6 +23,7 @@ import UpdatesPanel from "@/components/dashboard/UpdatesPanel";
 import CommodityPanel from "@/components/dashboard/CommodityPanel";
 import CommodityInsightsPanel from "@/components/dashboard/CommodityInsightsPanel";
 import SmoothScroll from "@/components/SmoothScroll";
+import { GlobalChatBot } from "@/components/dashboard/GlobalChatBot";
 import type {
   ConflictEvent,
   InfrastructureType,
@@ -174,6 +175,9 @@ export default function DashboardPage() {
       setReadIds(newStr);
     }
   };
+
+  // ── Global Chat State ────────────────────────────────
+  const [globalChatOpen, setGlobalChatOpen] = useState(false);
 
   // ── Filters ───────────────────────────────────────────
   const [selectedCountry, setSelectedCountry] = useState("");
@@ -548,6 +552,16 @@ export default function DashboardPage() {
             </svg>
           </button>
           <div className="h-4 w-px bg-cs-border" />
+          <button
+            onClick={() => setGlobalChatOpen((v) => !v)}
+            title="Open AI Assistant"
+            className={`p-1 rounded transition-colors ${globalChatOpen ? "bg-cs-blue/20 text-cs-blue" : "text-gray-300 hover:bg-cs-border/40"}`}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </button>
+          <div className="h-4 w-px bg-cs-border" />
           <div className="flex items-center gap-1.5">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
@@ -569,6 +583,12 @@ export default function DashboardPage() {
         isOpen={cityModalOpen}
         onClose={() => setCityModalOpen(false)}
         onSelect={handleCitySelect}
+      />
+
+      {/* Global AI Chat Bot */}
+      <GlobalChatBot
+        isOpen={globalChatOpen}
+        onClose={() => setGlobalChatOpen(false)}
       />
 
       {/* ── Main Layout ────────────────────────────────── */}

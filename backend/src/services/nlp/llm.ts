@@ -215,3 +215,49 @@ Assistant:`;
 
   return cached.response;
 }
+
+/**
+ * Answer questions based on the latest global news context.
+ */
+export async function answerGlobalChat(
+  question: string,
+  history: { role: string; content: string }[],
+  recentArticles: { title: string; content?: string | null; country?: string | null }[]
+): Promise<string> {
+  // We'll hash the query for basic caching, but since articles update frequently,
+  // we might want a short TTL if we use redis. For now, rely on standard caching.
+  const historyStr = history.map((h) => h.content).join("|");
+  const cacheKey = `global_chat:${historyStr}:${question}`;
+
+  const formattedHistory = history
+    .map((h) => `${h.role === "user" ? "User" : "Assistant"}: ${h.content}`)
+    .join("\n");
+
+  const contextStr = recentArticles
+    .slice(0, 15) // take top 15 to fit context window safely
+    .map((a, i) => `[${i + 1}] ${a.title} (${a.country || "Unknown"}) - ${a.content ? a.content.substring(0, 300) + "..." : "No details."}`)
+    .join("\n\n");
+
+  const prompt = `You are a Global Conflict & News AI assistant for 'Conflict Scope'.
+Answer the user's question using the latest news context provided below. If the answer is not in the context, you may use your general knowledge, but clarify that it's not from recent news. Be concise and professional.
+
+Latest News Context:
+${contextStr || "No recent news available."}
+
+Chat History:
+${formattedHistory || "None"}
+
+User's Question: ${question}
+Assistant:`;
+
+  const cached = await cachedAiCall(cacheKey, async () => {
+    const result = await callAI(prompt);
+    return {
+      question: cacheKey,
+      response: result,
+      generatedAt: new Date().toISOString(),
+    };
+  });
+
+  return cached.response;
+}
