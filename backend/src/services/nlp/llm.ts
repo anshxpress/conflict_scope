@@ -1,15 +1,79 @@
 import { cachedAiCall } from "../workers/ai.worker";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-3.1-flash-lite";
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// --- GEMINI API (COMMENTED OUT) ---
+// const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// const MODEL = "gemini-3.1-flash-lite";
+// const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// 
+// interface GeminiResponse {
+//   candidates?: Array<{
+//     content?: {
+//       parts?: Array<{
+//         text?: string;
+//       }>;
+//     };
+//   }>;
+//   error?: {
+//     message?: string;
+//   };
+// }
+// 
+// /**
+//  * Direct HTTP request to the Google Gemini API.
+//  */
+// async function callGemini(prompt: string): Promise<string> {
+//   if (!GEMINI_API_KEY) {
+//     console.warn("[GeminiService] GEMINI_API_KEY is not set. Using local rule-based fallback.");
+//     return generateFallback(prompt);
+//   }
+// 
+//   const url = `${API_URL}?key=${GEMINI_API_KEY}`;
+//   try {
+//     const response = await fetch(url, {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//       },
+//       body: JSON.stringify({
+//         contents: [
+//           {
+//             parts: [
+//               {
+//                 text: prompt,
+//               },
+//             ],
+//           },
+//         ],
+//       }),
+//       signal: AbortSignal.timeout(15000), // 15s timeout
+//     });
+// 
+//     if (!response.ok) {
+//       const errJson = (await response.json()) as GeminiResponse;
+//       throw new Error(errJson.error?.message || `HTTP error ${response.status}`);
+//     }
+// 
+//     const data = (await response.json()) as GeminiResponse;
+//     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+//     if (!text) {
+//       throw new Error("Invalid response format from Gemini API");
+//     }
+// 
+//     return text.trim();
+//   } catch (err) {
+//     console.error("[GeminiService] API call failed, falling back:", err);
+//     return generateFallback(prompt);
+//   }
+// }
 
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const MODEL = "gpt-3.5-turbo"; // Using a standard GPT model
+const API_URL = "https://api.openai.com/v1/chat/completions";
+
+interface OpenAIResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
     };
   }>;
   error?: {
@@ -17,50 +81,40 @@ interface GeminiResponse {
   };
 }
 
-/**
- * Direct HTTP request to the Google Gemini API.
- */
-async function callGemini(prompt: string): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    console.warn("[GeminiService] GEMINI_API_KEY is not set. Using local rule-based fallback.");
+async function callAI(prompt: string): Promise<string> {
+  if (!OPENAI_API_KEY) {
+    console.warn("[OpenAIService] OPENAI_API_KEY is not set. Using local rule-based fallback.");
     return generateFallback(prompt);
   }
 
-  const url = `${API_URL}?key=${GEMINI_API_KEY}`;
   try {
-    const response = await fetch(url, {
+    const response = await fetch(API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
+        model: MODEL,
+        messages: [{ role: "user", content: prompt }]
       }),
       signal: AbortSignal.timeout(15000), // 15s timeout
     });
 
     if (!response.ok) {
-      const errJson = (await response.json()) as GeminiResponse;
+      const errJson = (await response.json()) as OpenAIResponse;
       throw new Error(errJson.error?.message || `HTTP error ${response.status}`);
     }
 
-    const data = (await response.json()) as GeminiResponse;
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const data = (await response.json()) as OpenAIResponse;
+    const text = data.choices?.[0]?.message?.content;
     if (!text) {
-      throw new Error("Invalid response format from Gemini API");
+      throw new Error("Invalid response format from OpenAI API");
     }
 
     return text.trim();
   } catch (err) {
-    console.error("[GeminiService] API call failed, falling back:", err);
+    console.error("[OpenAIService] API call failed, falling back:", err);
     return generateFallback(prompt);
   }
 }
@@ -89,7 +143,7 @@ Title: ${title}
 Content: ${body || "No details provided."}`;
 
   const cached = await cachedAiCall(cacheKey, async () => {
-    const result = await callGemini(prompt);
+    const result = await callAI(prompt);
     return {
       question: cacheKey,
       response: result,
@@ -111,7 +165,7 @@ Title: ${title}
 Content: ${body || "No details provided."}`;
 
   const cached = await cachedAiCall(cacheKey, async () => {
-    const result = await callGemini(prompt);
+    const result = await callAI(prompt);
     return {
       question: cacheKey,
       response: result,
@@ -151,7 +205,7 @@ User's Question: ${question}
 Assistant:`;
 
   const cached = await cachedAiCall(cacheKey, async () => {
-    const result = await callGemini(prompt);
+    const result = await callAI(prompt);
     return {
       question: cacheKey,
       response: result,
