@@ -6,6 +6,7 @@
       "name": "conflictscope-backend",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
+        "@open-pets/client": "^4.0.0",
         "@upstash/redis": "^1.38.0",
         "@xenova/transformers": "^2.17.2",
         "compromise": "^14.14.0",
@@ -90,6 +91,8 @@
     "@huggingface/jinja": ["@huggingface/jinja@0.2.2", "", {}, "sha512-/KPde26khDUIPkTGU82jdtTW9UAuvUTumCAbFs/7giR0SxsvZC4hru51PBvpijH6BVkHcROcvZM/lpy5h1jRRA=="],
 
     "@mongodb-js/saslprep": ["@mongodb-js/saslprep@1.4.6", "", { "dependencies": { "sparse-bitfield": "^3.0.3" } }, "sha512-y+x3H1xBZd38n10NZF/rEBlvDOOMQ6LKUTHqr8R9VkJ+mmQOYtJFxIlkkK8fZrtOiL6VixbOBWMbZGBdal3Z1g=="],
+
+    "@open-pets/client": ["@open-pets/client@4.0.0", "", {}, "sha512-5M+VeuzXF2tEZm5Y12qhPn2DIMiKyn4A9ZEqV59+JAKKvddWzG6/Xjnw6EQsS0ajFW4LECes/W/DAKnUztq2ig=="],
 
     "@protobufjs/aspromise": ["@protobufjs/aspromise@1.1.2", "", {}, "sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ=="],
 
